@@ -79,19 +79,14 @@ document.head.appendChild(style);
 const genId = () => "SES-" + Math.random().toString(36).substring(2, 9).toUpperCase();
 
 async function callClaude(system, user) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      system,
-      messages: [{ role: "user", content: user }],
-    }),
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ system, user }),
   });
   if (!res.ok) throw new Error(`API ${res.status}`);
   const d = await res.json();
-  return d.content.find(b => b.type === "text")?.text ?? "";
+  return d.content.find(b => b.type === 'text')?.text ?? '';
 }
 
 async function callJSON(system, user) {
