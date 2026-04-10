@@ -974,6 +974,7 @@ export default function RequirementsAgent() {
 
   // ── Agent view ──
   const stepLabels = ["Scope", "Requirements", "Questions", "Review"];
+ const STEPS = stepLabels;
   const answeredReqs = Object.keys(questions).length;
   const openQ = Object.values(questions).flat().filter(q => q.type === "open_ended").length;
   const mcQ = Object.values(questions).flat().filter(q => q.type === "multiple_choice").length;
