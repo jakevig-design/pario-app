@@ -691,6 +691,10 @@ export default function RequirementsAgent() {
   const [newActName, setNewActName] = useState("");
   const [newActGroup, setNewActGroup] = useState("Pre-RFP");
 
+  // Export
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportErr, setExportErr] = useState("");
+
   // Market research
   const [marketView, setMarketView] = useState(false);
   const [vendors, setVendors] = useState([]);
