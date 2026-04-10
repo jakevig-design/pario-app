@@ -511,24 +511,26 @@ Return ONLY valid JSON, no markdown:
 
 const P_MARKET = `You are a procurement analyst conducting market research for a software procurement.
 
-Given a project scope and a list of functional requirements, search the web to identify 5-8 relevant software vendors. For each vendor:
-- Search G2.com, Gartner, and vendor websites for current information
-- Focus on vendors that are realistic fits for the described need
+Given a project scope and functional requirements, use web search to identify 5-8 relevant software vendors. Search G2.com, Gartner, and vendor websites for current ratings and descriptions.
 
-Return ONLY a valid JSON array, no markdown, no preamble:
-[{
+After completing your research, you MUST respond with ONLY a valid JSON array — no introduction, no explanation, no markdown fences. Just the raw JSON array starting with [ and ending with ].
+
+Each object in the array must have exactly these fields:
+{
   "name": "Vendor Name",
   "category": "Software category (e.g. ITAM, ERP, CMDB)",
-  "g2Rating": "4.5/5 or N/A if not found",
+  "g2Rating": "4.5/5 or N/A",
   "g2ReviewCount": "1,200 reviews or N/A",
-  "description": "One sentence describing what the vendor does and their key differentiator.",
+  "description": "One sentence describing what the vendor does.",
   "requirementsMatch": 4,
   "requirementsTotal": 6,
-  "matchConfidence": "high|medium|low",
+  "matchConfidence": "high",
   "g2Url": "https://www.g2.com/products/... or null"
-}]
+}
 
-requirementsMatch should be your best estimate of how many of the provided requirements this vendor likely meets. matchConfidence reflects how certain you are based on available information.`;
+requirementsMatch is your estimate of how many requirements this vendor meets.
+matchConfidence is high, medium, or low based on how certain you are.
+Your entire response must be parseable by JSON.parse() with no preprocessing.`;
 const FIVE_WS = [
   { key: "who", label: "Who", question: "Who will use this system, and who owns this initiative?", placeholder: "e.g. Shop floor technicians will use it daily. The VP of Operations is the project sponsor." },
   { key: "what", label: "What", question: "What problem are you solving, or what capability are you adding?", placeholder: "e.g. We lose track of tools constantly. We need real-time visibility into tool location and condition." },
@@ -651,7 +653,7 @@ export default function RequirementsAgent() {
   const [sessionId] = useState(genId);
   const [step, setStep] = useState(0);
   const [projectTitle, setProjectTitle] = useState("");
-  const [view, setView] = useState("sessions");
+  const [view, setView] = useState("splash");
   const [sessionsList, setSessionsList] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState("idle");
@@ -696,7 +698,6 @@ export default function RequirementsAgent() {
   const [exportErr, setExportErr] = useState("");
 
   // Market research
-  const [marketView, setMarketView] = useState(false);
   const [vendors, setVendors] = useState([]);
   const [vendorStatus, setVendorStatus] = useState({}); // { vendorName: 'shortlisted' | 'eliminated' }
   const [marketBusy, setMarketBusy] = useState(false);
@@ -922,53 +923,53 @@ export default function RequirementsAgent() {
   };
 
   const pct = (step / 3) * 100;
+  const stepLabels = ["Scope", "Requirements", "Questions", "Review"];
+  const answeredReqs = Object.keys(questions).length;
+  const openQ = Object.values(questions).flat().filter(q => q.type === "open_ended").length;
+  const mcQ = Object.values(questions).flat().filter(q => q.type === "multiple_choice").length;
 
-  // ── Sessions view ──
-  if (view === "sessions") {
+  const topbarTitles = { splash: "Home", sessions: "Sessions", timeline: "Timeline", market: "Market Research", agent: stepLabels[step] || "Scope" };
+  const topbarSubs = {
+    splash: "Jake's RFP Builder", sessions: "All sessions",
+    timeline: projectTitle || "Untitled project",
+    market: (projectTitle || "Untitled project") + " · Vendor identification",
+    agent: (projectTitle || "Untitled project") + ` · Step ${step + 1} of 4`,
+  };
+
+  // ── Splash ──
+  if (view === "splash") {
     return (
       <div className="rq-root">
         <div className="rq-shell">
           <div className="rq-sidebar">
-            <div className="rq-sidebar-logo">
+            <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
               <div className="rq-sidebar-brand">Procurement</div>
               <div className="rq-sidebar-title">Agent</div>
             </div>
-            <div style={{ flex: 1 }} />
-            <div className="rq-sidebar-footer">
-              <button className="rq-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setView("agent")}>
-                <Plus size={13} /> New Session
-              </button>
+            <div className="rq-nav">
+              <div className="rq-nav-item active"><div className="rq-nav-num" style={{ fontSize: 8 }}>⌂</div>Home</div>
+              <div className="rq-nav-item" onClick={() => setView("sessions")}><div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Sessions</div>
             </div>
           </div>
           <div className="rq-main">
             <div className="rq-topbar">
               <div className="rq-topbar-left">
-                <div className="rq-topbar-title">Sessions</div>
-                <div className="rq-topbar-sub">Select a session to resume or start a new one</div>
+                <div className="rq-topbar-title">Home</div>
+                <div className="rq-topbar-sub">Jake's RFP Builder</div>
               </div>
             </div>
-            <div className="rq-content">
-              {sessionsLoading && <div className="rq-loading-center"><Loader size={18} className="spin" /></div>}
-              {!sessionsLoading && sessionsList.length === 0 && (
-                <div style={{ textAlign: "center", padding: "64px 0", color: "#3a5060", fontSize: 14, fontStyle: "italic" }}>No sessions yet. Start a new one.</div>
-              )}
-              {!sessionsLoading && sessionsList.length > 0 && (
-                <div className="sessions-panel">
-                  <div className="sessions-header"><div className="sessions-title">{sessionsList.length} session{sessionsList.length !== 1 ? "s" : ""}</div></div>
-                  {sessionsList.map(s => (
-                    <div className="session-row" key={s.id} onClick={() => doLoadSession(s.id)}>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="session-name">{s.project_title || "Untitled"}</div>
-                        <div className="session-meta">{s.id} · {new Date(s.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                        <span className={`session-status ${s.status}`}>{s.status}</span>
-                        <button className="rq-btn-icon rq-btn-del" onClick={(e) => doDeleteSession(s.id, e)} style={{ padding: "5px 7px" }}><Trash2 size={12} /></button>
-                      </div>
-                    </div>
-                  ))}
+            <div className="rq-content" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ textAlign: "center", maxWidth: 480 }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#5DCAA5", marginBottom: 12 }}>Procurement</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: "#d8eaf2", marginBottom: 12, lineHeight: 1.15 }}>Jake's RFP Builder</div>
+                <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#607a8a", lineHeight: 1.7, marginBottom: 36 }}>AI-powered procurement requirements tool. Build a scoped, structured RFP in minutes — scope, requirements, discovery questions, timeline, and vendor shortlist.</div>
+                <button className="rq-btn-primary" style={{ padding: "14px 32px", fontSize: 13 }} onClick={() => { setStep(0); setView("agent"); }}>
+                  <Plus size={15} /> Start new session
+                </button>
+                <div style={{ marginTop: 16 }}>
+                  <button className="rq-btn-ghost" onClick={() => setView("sessions")}>View sessions</button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -976,390 +977,108 @@ export default function RequirementsAgent() {
     );
   }
 
-  // ── Agent view ──
-  const stepLabels = ["Scope", "Requirements", "Questions", "Review"];
-  const answeredReqs = Object.keys(questions).length;
-  const openQ = Object.values(questions).flat().filter(q => q.type === "open_ended").length;
-  const mcQ = Object.values(questions).flat().filter(q => q.type === "multiple_choice").length;
+  // ── Shared sidebar ──
+  const sidebarNav = (
+    <div className="rq-sidebar">
+      <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
+        <div className="rq-sidebar-brand">Procurement</div>
+        <div className="rq-sidebar-title">Agent</div>
+        {view === "agent" && <div className="rq-sidebar-session">{sessionId}</div>}
+      </div>
+      <div className="rq-nav">
+        {stepLabels.map((label, i) => (
+          <div key={label}
+            className={`rq-nav-item ${view === "agent" && i === step ? "active" : view === "agent" && i < step ? "done" : ""}`}
+            onClick={() => { if (i <= step) { setView("agent"); setStep(i); } }}
+          >
+            <div className="rq-nav-num">{view === "agent" && i < step ? <CheckCircle size={11} /> : i + 1}</div>
+            {label}
+          </div>
+        ))}
+        <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
+        <div className={`rq-nav-item ${view === "timeline" ? "active" : ""}`} onClick={() => setView("timeline")}>
+          <div className="rq-nav-num" style={{ fontSize: 8 }}>TL</div>Timeline
+        </div>
+        <div className={`rq-nav-item ${view === "market" ? "active" : ""}`} onClick={() => setView("market")}>
+          <div className="rq-nav-num" style={{ fontSize: 8 }}>M</div>Market
+        </div>
+        <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
+        <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => setView("sessions")}>
+          <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Sessions
+        </div>
+      </div>
+      <div className="rq-sidebar-footer">
+        <button className="rq-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => setView("splash")}>
+          <ArrowLeft size={12} /> Home
+        </button>
+      </div>
+    </div>
+  );
+
+  const topbar = (
+    <div className="rq-topbar">
+      <div className="rq-topbar-left">
+        <div className="rq-topbar-title">{topbarTitles[view] || stepLabels[step]}</div>
+        <div className="rq-topbar-sub">{topbarSubs[view] || ""}</div>
+      </div>
+      <div className="rq-topbar-right">
+        <div className={`sv-status ${saveStatus === "idle" ? "" : saveStatus}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, display: "flex", alignItems: "center", gap: 6 }}>
+          {saveStatus === "saving" && <><Loader size={11} className="spin" /> Saving…</>}
+          {saveStatus === "saved" && <span className="rq-save-chip"><CheckCircle size={11} /> Saved</span>}
+          {saveStatus === "error" && <span style={{ color: "#e07070" }}>Save failed</span>}
+          {saveStatus === "idle" && lastSaved && <span style={{ color: "#3a5060" }}><Clock size={11} style={{ display: "inline", marginRight: 4 }} />{lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
+        </div>
+        <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
+        <button className="rq-export-btn" onClick={doExport} disabled={step < 3 || exportBusy}>
+          {exportBusy ? <Loader size={14} className="spin" /> : <FileText size={14} />} Export .docx
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="rq-root">
       <div className="rq-shell">
-        {/* ── Sidebar ── */}
-        <div className="rq-sidebar">
-          <div className="rq-sidebar-logo">
-            <div className="rq-sidebar-brand">Procurement</div>
-            <div className="rq-sidebar-title">Agent</div>
-            <div className="rq-sidebar-session">{sessionId}</div>
-          </div>
-          <div className="rq-nav">
-            {stepLabels.map((label, i) => (
-              <div key={label} className={`rq-nav-item ${!marketView && i === step ? "active" : !marketView && i < step ? "done" : ""}`} onClick={() => { setMarketView(false); i <= step && setStep(i); }}>
-                <div className="rq-nav-num">{i < step ? <CheckCircle size={11} /> : i + 1}</div>
-                {label}
-              </div>
-            ))}
-            <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
-            <div className={`rq-nav-item ${marketView ? "active" : ""}`} onClick={() => setMarketView(true)}>
-              <div className="rq-nav-num" style={{ fontSize: 8 }}>M</div>
-              Market
-            </div>
-          </div>
-          <div className="rq-sidebar-footer">
-            <button className="rq-btn-ghost" style={{ width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => setView("sessions")}>
-              <ArrowLeft size={12} /> Sessions
-            </button>
-          </div>
-        </div>
-
-        {/* ── Main ── */}
+        {sidebarNav}
         <div className="rq-main">
-          <div className="rq-topbar">
-            <div className="rq-topbar-left">
-              <div className="rq-topbar-title">{marketView ? "Market Research" : stepLabels[step]}</div>
-              <div className="rq-topbar-sub">{projectTitle || "Untitled project"}{marketView ? " · Vendor identification" : ` · Step ${step + 1} of 4`}</div>
-            </div>
-            <div className="rq-topbar-right">
-              <div className={`sv-status ${saveStatus === "idle" ? "" : saveStatus}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                {saveStatus === "saving" && <><Loader size={11} className="spin" /> Saving…</>}
-                {saveStatus === "saved" && <span className="rq-save-chip"><CheckCircle size={11} /> Saved</span>}
-                {saveStatus === "error" && <span style={{ color: "#e07070" }}>Save failed</span>}
-                {saveStatus === "idle" && lastSaved && <span style={{ color: "#3a5060" }}><Clock size={11} style={{ display: "inline", marginRight: 4 }} />{lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
-              </div>
-              <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
-              <button className="rq-export-btn" onClick={doExport} disabled={step < 3 || exportBusy}>
-                {exportBusy ? <Loader size={14} className="spin" /> : <FileText size={14} />} Export .docx
-              </button>
-            </div>
-          </div>
-
+          {topbar}
           <div className="rq-content">
-            {/* Metric cards — shown from step 1 onwards */}
-            {!marketView && step >= 1 && (
-              <div className="rq-metrics">
-                <div className="rq-metric">
-                  <div className="rq-metric-label">Requirements</div>
-                  <div className="rq-metric-val">{requirements.length}</div>
-                  <div className="rq-metric-sub">binary</div>
-                </div>
-                <div className="rq-metric">
-                  <div className="rq-metric-label">Questions</div>
-                  <div className="rq-metric-val">{openQ + mcQ}</div>
-                  <div className="rq-metric-sub">{answeredReqs > 0 ? `${answeredReqs} reqs covered` : "not yet generated"}</div>
-                </div>
-                <div className="rq-metric">
-                  <div className="rq-metric-label">Open ended</div>
-                  <div className="rq-metric-val">{openQ}</div>
-                  <div className="rq-metric-sub amber">of {openQ + mcQ || "—"}</div>
-                </div>
-                <div className="rq-metric">
-                  <div className="rq-metric-label">Multiple choice</div>
-                  <div className="rq-metric-val">{mcQ}</div>
-                  <div className="rq-metric-sub amber">of {openQ + mcQ || "—"}</div>
-                </div>
-              </div>
-            )}
 
-            {/* ── Market Research ── */}
-            {marketView && (
+            {/* ── Sessions ── */}
+            {view === "sessions" && (
               <div className="rq-fade">
-                {!formalScope || !scopeApproved ? (
-                  <div style={{ textAlign: "center", padding: "48px 0" }}>
-                    <div style={{ color: "#607a8a", fontSize: 14, fontStyle: "italic", marginBottom: 16 }}>Complete and approve the project scope first.</div>
-                    <button className="rq-btn-primary" onClick={() => { setMarketView(false); setStep(0); }}>Go to Scope <ChevronRight size={13} /></button>
-                  </div>
-                ) : (
-                  <>
-                    <p className="rq-hint">AI will search G2, Gartner, and vendor websites to identify 5–8 relevant vendors and score them against your requirements.</p>
-
-                    {/* Shortlist summary */}
-                    {vendors.length > 0 && (
-                      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-                        <div className="rq-metric" style={{ minWidth: 100 }}>
-                          <div className="rq-metric-label">Vendors found</div>
-                          <div className="rq-metric-val">{vendors.length}</div>
-                        </div>
-                        <div className="rq-metric" style={{ minWidth: 100 }}>
-                          <div className="rq-metric-label">Shortlisted</div>
-                          <div className="rq-metric-val">{Object.values(vendorStatus).filter(s => s === "shortlisted").length}</div>
-                          <div className="rq-metric-sub">for RFP</div>
-                        </div>
-                        <div className="rq-metric" style={{ minWidth: 100 }}>
-                          <div className="rq-metric-label">Eliminated</div>
-                          <div className="rq-metric-val">{Object.values(vendorStatus).filter(s => s === "eliminated").length}</div>
-                          <div className="rq-metric-sub amber">ruled out</div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="rq-actions" style={{ marginBottom: 20, marginTop: 0 }}>
-                      <button className="rq-btn-primary" onClick={doMarketResearch} disabled={marketBusy}>
-                        {marketBusy ? <><Loader size={13} className="spin" /> Researching vendors…</> : vendors.length > 0 ? <><RefreshCw size={13} /> Re-run research</> : <>Search vendors</>}
-                      </button>
-                    </div>
-
-                    {marketErr && <div className="rq-error">{marketErr}</div>}
-
-                    {marketBusy && (
-                      <div className="rq-loading-center">
-                        <Loader size={20} className="spin" style={{ marginBottom: 10 }} /><br />
-                        Searching G2, Gartner, and vendor sites…
-                      </div>
-                    )}
-
-                    {!marketBusy && vendors.map(v => {
-                      const status = vendorStatus[v.name];
-                      const matchPct = v.requirementsTotal > 0 ? v.requirementsMatch / v.requirementsTotal : 0;
-                      return (
-                        <div key={v.name} className={`vendor-card rq-fade${status === "shortlisted" ? " shortlisted" : status === "eliminated" ? " eliminated" : ""}`}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                            <div style={{ minWidth: 0 }}>
-                              <div className="vendor-name">{v.name}</div>
-                              <div className="vendor-category">{v.category}</div>
-                            </div>
-                            {status === "shortlisted" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#5DCAA5", background: "rgba(93,202,165,0.12)", padding: "3px 8px", borderRadius: 3, flexShrink: 0 }}>Shortlisted</span>}
-                            {status === "eliminated" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#e07070", background: "rgba(184,80,80,0.1)", padding: "3px 8px", borderRadius: 3, flexShrink: 0 }}>Eliminated</span>}
-                          </div>
-
-                          <div className="vendor-meta">
-                            {v.g2Rating && v.g2Rating !== "N/A" && (
-                              <div className="vendor-rating">
-                                <span style={{ color: "#EF9F27" }}>★</span> {v.g2Rating}
-                              </div>
-                            )}
-                            {v.g2ReviewCount && v.g2ReviewCount !== "N/A" && (
-                              <div className="vendor-reviews">{v.g2ReviewCount}</div>
-                            )}
-                          </div>
-
-                          <div className="vendor-desc">{v.description}</div>
-
-                          <div className="vendor-match">
-                            <div className={`confidence-dot confidence-${v.matchConfidence || "low"}`} />
-                            <div className="vendor-match-bar">
-                              <div className={`vendor-match-fill ${v.matchConfidence === "medium" ? "medium" : v.matchConfidence === "low" ? "low" : ""}`} style={{ width: `${matchPct * 100}%` }} />
-                            </div>
-                            <div className="vendor-match-text">{v.requirementsMatch} of {v.requirementsTotal} requirements likely met</div>
-                          </div>
-
-                          <div className="vendor-actions">
-                            <button className={`vendor-btn vendor-btn-shortlist${status === "shortlisted" ? " active" : ""}`} onClick={() => toggleVendorStatus(v.name, "shortlisted")}>
-                              {status === "shortlisted" ? "✓ Shortlisted" : "Shortlist"}
-                            </button>
-                            <button className={`vendor-btn vendor-btn-eliminate${status === "eliminated" ? " active" : ""}`} onClick={() => toggleVendorStatus(v.name, "eliminated")}>
-                              {status === "eliminated" ? "✗ Eliminated" : "Eliminate"}
-                            </button>
-                            {v.g2Url && (
-                              <a href={v.g2Url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                                <button className="vendor-btn vendor-btn-g2">G2 ↗</button>
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                  <div className="rq-section-label" style={{ marginBottom: 0 }}>{sessionsList.length} session{sessionsList.length !== 1 ? "s" : ""}</div>
+                  <button className="rq-btn-primary" onClick={() => { setStep(0); setView("agent"); }}><Plus size={13} /> New session</button>
+                </div>
+                {sessionsLoading && <div className="rq-loading-center"><Loader size={18} className="spin" /></div>}
+                {!sessionsLoading && sessionsList.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "48px 0", color: "#3a5060", fontSize: 14, fontStyle: "italic" }}>No sessions yet.</div>
                 )}
-              </div>
-            )}
-
-            {/* ── Step 0: Scope ── */}
-            {!marketView && step === 0 && (
-              <div className="rq-fade">
-                <div className="rq-section-label" style={{ marginBottom: 6 }}>Project title</div>
-                <input className="rq-input" style={{ marginBottom: 22 }} placeholder="e.g. Enterprise Tool Tracking System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
-                <div className="rq-section-label" style={{ marginBottom: 14 }}>Project intake</div>
-                {FIVE_WS.map(w => (
-                  <div className="rq-5w-card" key={w.key}>
-                    <div className="rq-5w-label">{w.label}</div>
-                    <div className="rq-5w-question">{w.question}</div>
-                    <textarea key={`ta-${w.key}`} name={w.key} className="rq-textarea" placeholder={w.placeholder} value={answers[w.key]} onChange={e => { const k = w.key, v = e.target.value; setAnswers(p => ({ ...p, [k]: v })); }} rows={2} />
-                  </div>
-                ))}
-                {scopeErr && <div className="rq-error">{scopeErr}</div>}
-                {formalScope && (
-                  <div style={{ marginTop: 20 }} className="rq-fade">
-                    <div className="rq-section-label">Generated scope</div>
-                    {editingScope ? (
-                      <>
-                        <textarea className="rq-textarea" value={formalScope} onChange={e => setFormalScope(e.target.value)} rows={5} style={{ marginBottom: 10 }} />
-                        <div className="rq-actions"><button className="rq-btn-ghost" onClick={async () => { setEditingScope(false); await doEvaluateScope(formalScope); }}><Check size={12} /> Done editing</button></div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="rq-scope-box">{formalScope}</div>
-                        <div className="rq-actions">
-                          <button className="rq-btn-ghost" onClick={() => setEditingScope(true)}><Pencil size={12} /> Edit</button>
-                          <button className="rq-btn-ghost" onClick={doGenerateScope} disabled={scopeBusy}><RefreshCw size={12} /> Regenerate</button>
+                {!sessionsLoading && sessionsList.length > 0 && (
+                  <div className="sessions-panel">
+                    <div className="sessions-header"><div className="sessions-title">All sessions</div></div>
+                    {sessionsList.map(s => (
+                      <div className="session-row" key={s.id} onClick={() => doLoadSession(s.id)}>
+                        <div style={{ minWidth: 0 }}>
+                          <div className="session-name">{s.project_title || "Untitled"}</div>
+                          <div className="session-meta">{s.id} · {new Date(s.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
                         </div>
-                      </>
-                    )}
-                    {scopeFlags.length > 0 && !editingScope && (
-                      <div style={{ marginTop: 18 }} className="rq-fade">
-                        <div className="rq-section-label" style={{ marginBottom: 10 }}>Scope review — action required</div>
-                        {scopeFlags.map(flag => {
-                          const val = flagResponses[flag.criterion] || "";
-                          const skipped = isSkipped(val);
-                          return (
-                            <div className="rq-flag-card" key={flag.criterion} style={{ opacity: skipped ? 0.5 : 1 }}>
-                              <div className="rq-flag-title"><AlertTriangle size={13} /> {flag.criterion}{skipped && <span style={{ marginLeft: 8, fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#EF9F27", background: "rgba(239,159,39,0.15)", padding: "2px 7px", borderRadius: 3 }}>SKIPPED</span>}</div>
-                              {!skipped && <div className="rq-flag-text">{flag.prompt}</div>}
-                              <textarea className="rq-textarea" placeholder={`Your response… (type "skip" to dismiss)`} value={val} onChange={e => setFlagResponses(p => ({ ...p, [flag.criterion]: e.target.value }))} rows={skipped ? 1 : 2} style={{ opacity: skipped ? 0.6 : 1 }} />
-                            </div>
-                          );
-                        })}
-                        <div className="rq-actions">
-                          <button className="rq-btn-primary" onClick={doRefineScope} disabled={scopeBusy || !allFlagResponsesFilled}>
-                            {scopeBusy ? <><Loader size={13} className="spin" /> Refining…</> : <>Refine scope <ChevronRight size={13} /></>}
-                          </button>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                          <span className={`session-status ${s.status}`}>{s.status}</span>
+                          <button className="rq-btn-icon rq-btn-del" onClick={(e) => doDeleteSession(s.id, e)} style={{ padding: "5px 7px" }}><Trash2 size={12} /></button>
                         </div>
                       </div>
-                    )}
-                    {scopeApproved && !editingScope && (
-                      <div style={{ marginTop: 14 }} className="rq-fade">
-                        <div className="rq-scope-approved"><CheckCircle size={15} /> Scope approved — all criteria met</div>
-                        <div className="rq-actions"><button className="rq-btn-primary" onClick={() => { setStep(1); doGenerateReqs(); }}>Generate requirements <ChevronRight size={13} /></button></div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {!formalScope && (
-                  <div className="rq-actions" style={{ marginTop: 8 }}>
-                    <button className="rq-btn-primary" onClick={doGenerateScope} disabled={!allAnswered || scopeBusy}>
-                      {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
-                    </button>
+                    ))}
                   </div>
                 )}
               </div>
             )}
 
-            {/* ── Step 1: Requirements ── */}
-            {!marketView && step === 1 && (
+            {/* ── Timeline ── */}
+            {view === "timeline" && (
               <div className="rq-fade">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
-                  <p className="rq-hint" style={{ marginBottom: 0 }}>Edit, delete, or add your own below.</p>
-                  <button className="rq-btn-ghost" onClick={doGenerateReqs} disabled={reqsBusy}>{reqsBusy ? <Loader size={11} className="spin" /> : <RefreshCw size={11} />} Regenerate</button>
-                </div>
-                {reqsBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating requirements…</div>}
-                {reqsErr && <div className="rq-error">{reqsErr}</div>}
-                {!reqsBusy && requirements.map(req => (
-                  <div className="rq-card rq-fade" key={req.id}>
-                    <div className="rq-req-id">{req.id}</div>
-                    {editId === req.id ? (
-                      <>
-                        <input className="rq-input" value={editText} onChange={e => setEditText(e.target.value)} style={{ marginTop: 8, marginBottom: 10 }} />
-                        <div className="rq-row"><button className="rq-btn-ghost" onClick={() => saveEdit(req.id)}><Check size={11} /> Save</button><button className="rq-btn-ghost" onClick={() => setEditId(null)}><X size={11} /> Cancel</button></div>
-                      </>
-                    ) : (
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                        <div className="rq-req-text">{req.text}</div>
-                        <div className="rq-row" style={{ flexShrink: 0 }}>
-                          <button className="rq-btn-icon" onClick={() => { setEditId(req.id); setEditText(req.text); }}><Pencil size={12} /></button>
-                          <button className="rq-btn-icon rq-btn-del" onClick={() => deleteReq(req.id)}><Trash2 size={12} /></button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {!reqsBusy && (
-                  <div className="rq-row" style={{ marginTop: 8 }}>
-                    <input className="rq-input" placeholder="Add your own requirement…" value={newReq} onChange={e => setNewReq(e.target.value)} onKeyDown={e => e.key === "Enter" && addReq()} />
-                    <button className="rq-btn-ghost" onClick={addReq} disabled={!newReq.trim()} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Add</button>
-                  </div>
-                )}
-                {!reqsBusy && requirements.length > 0 && (
-                  <div className="rq-actions" style={{ marginTop: 22 }}>
-                    <button className="rq-btn-ghost" onClick={() => setStep(0)}>← Back</button>
-                    <button className="rq-btn-primary" onClick={() => setStep(2)}>Continue to questions <ChevronRight size={13} /></button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── Step 2: Questions ── */}
-            {!marketView && step === 2 && (
-              <div className="rq-fade">
-                <p className="rq-hint">The agent will generate 2–3 follow-up questions per requirement — a mix of open-ended and multiple choice.</p>
-                {qErr && <div className="rq-error">{qErr}</div>}
-                {qBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating questions for {requirements.length} requirement{requirements.length !== 1 ? "s" : ""}…</div>}
-                {!qBusy && Object.keys(questions).length === 0 && (
-                  <div className="rq-actions">
-                    <button className="rq-btn-ghost" onClick={() => setStep(1)}>← Back</button>
-                    <button className="rq-btn-primary" onClick={doGenerateQuestions}>Generate questions <ChevronRight size={13} /></button>
-                  </div>
-                )}
-                {!qBusy && Object.keys(questions).length > 0 && (
-                  <>
-                    {requirements.map(req => {
-                      const qs = questions[req.id] || [];
-                      return (
-                        <div key={req.id} style={{ marginBottom: 22 }}>
-                          <div className="rq-req-group-label">{req.id} — {req.text}</div>
-                          {qs.map((q, i) => (
-                            <div className="rq-q-card" key={i}>
-                              <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open ended" : "Multiple choice"}</div>
-                              <div className="rq-q-text">{q.text}</div>
-                              {q.type === "multiple_choice" && q.options?.length && (
-                                <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                    <div className="rq-actions">
-                      <button className="rq-btn-ghost" onClick={doGenerateQuestions} disabled={qBusy}><RefreshCw size={11} /> Regenerate</button>
-                      <button className="rq-btn-primary" onClick={() => setStep(3)}>Continue to review <ChevronRight size={13} /></button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* ── Step 3: Review ── */}
-            {!marketView && step === 3 && (
-              <div className="rq-fade">
-                <div className="rq-section-label">1. Scope</div>
-                <div className="rq-scope-box" style={{ marginBottom: 24 }}>{formalScope}</div>
-                <hr className="rq-divider" />
-
-                <div className="rq-section-label">2. Functional requirements ({requirements.length})</div>
-                <div style={{ marginBottom: 24 }}>
-                  {requirements.map(req => (
-                    <div className="rq-card" key={req.id} style={{ cursor: "default" }}>
-                      <div className="rq-req-id">{req.id}</div>
-                      <div className="rq-req-text">{req.text}</div>
-                    </div>
-                  ))}
-                </div>
-                <hr className="rq-divider" />
-
-                <div className="rq-section-label">3. Questions</div>
-                <div style={{ marginBottom: 24 }}>
-                  {requirements.map(req => {
-                    const qs = questions[req.id] || [];
-                    return (
-                      <div key={req.id} style={{ marginBottom: 22 }}>
-                        <div className="rq-req-group-label">{req.id} — {req.text}</div>
-                        {qs.map((q, i) => (
-                          <div className="rq-q-card" key={i}>
-                            <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open ended" : "Multiple choice"}</div>
-                            <div className="rq-q-text">{q.text}</div>
-                            {q.type === "multiple_choice" && q.options?.length && (
-                              <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-                <hr className="rq-divider" />
-
-                {/* 4. Timeline */}
-                <div className="rq-section-label">4. Procurement timeline</div>
-                <p className="rq-hint">Set your start and go-live dates — all activity dates cascade automatically. Adjust individual dates or offsets as needed.</p>
-
+                <p className="rq-hint">Set your start and go-live dates — all activity dates cascade automatically.</p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
                   <div style={{ background: "#1b2530", border: "1px solid rgba(93,202,165,0.2)", borderRadius: 8, padding: "14px 16px" }}>
                     <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#5DCAA5", marginBottom: 6 }}>RFP Start Date</div>
@@ -1369,16 +1088,12 @@ export default function RequirementsAgent() {
                   <div style={{ background: "#1b2530", border: "1px solid rgba(239,159,39,0.2)", borderRadius: 8, padding: "14px 16px" }}>
                     <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#EF9F27", marginBottom: 6 }}>Go-Live Date</div>
                     <input type="date" className="rq-input" value={goLive} onChange={e => handleGoLiveChange(e.target.value)} />
-                    {rfpStart && goLive && (
-                      <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "#607a8a", marginTop: 5 }}>{calDaysBetween(rfpStart, goLive)} calendar days total</div>
-                    )}
+                    {rfpStart && goLive && <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "#607a8a", marginTop: 5 }}>{calDaysBetween(rfpStart, goLive)} calendar days total</div>}
                   </div>
                 </div>
-
                 <div style={{ display: "grid", gridTemplateColumns: "20px 1fr 110px 110px 70px 60px 32px", gap: 6, marginBottom: 6, paddingLeft: 10, paddingRight: 4 }}>
                   <div /><div className="tl-col-hdr">Activity</div><div className="tl-col-hdr">Start</div><div className="tl-col-hdr">End</div><div className="tl-col-hdr">Offset (days)</div><div className="tl-col-hdr">Duration</div><div />
                 </div>
-
                 {GROUPS.map(g => {
                   const gas = activities.filter(a => a.group === g);
                   const collapsed = collapsedGroups[g];
@@ -1413,7 +1128,6 @@ export default function RequirementsAgent() {
                     </div>
                   );
                 })}
-
                 <div className="rq-row" style={{ marginTop: 8, marginBottom: 22 }}>
                   <input className="rq-input" placeholder="New activity name…" value={newActName} onChange={e => setNewActName(e.target.value)} onKeyDown={e => e.key === "Enter" && addActivity()} style={{ flex: 1 }} />
                   <select style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "9px 10px", fontFamily: "'Syne',sans-serif", fontSize: 11, color: "#d8eaf2", background: "#141d26", outline: "none" }} value={newActGroup} onChange={e => setNewActGroup(e.target.value)}>
@@ -1421,16 +1135,260 @@ export default function RequirementsAgent() {
                   </select>
                   <button className="rq-btn-ghost" onClick={addActivity} disabled={!newActName.trim()} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Add</button>
                 </div>
-
                 <GanttChart activities={activities} />
-
-                <hr className="rq-divider" />
-                {exportErr && <div className="rq-error">{exportErr}</div>}
-                <button className="rq-btn-primary" onClick={doExport} disabled={exportBusy} style={{ padding: "12px 28px" }}>
-                  {exportBusy ? <><Loader size={14} className="spin" /> Exporting…</> : <><FileText size={14} /> Export to .docx</>}
-                </button>
               </div>
             )}
+
+            {/* ── Market ── */}
+            {view === "market" && (
+              <div className="rq-fade">
+                {!formalScope || !scopeApproved ? (
+                  <div style={{ textAlign: "center", padding: "48px 0" }}>
+                    <div style={{ color: "#607a8a", fontSize: 14, fontStyle: "italic", marginBottom: 16 }}>Complete and approve the project scope first.</div>
+                    <button className="rq-btn-primary" onClick={() => { setStep(0); setView("agent"); }}>Go to Scope <ChevronRight size={13} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="rq-hint">AI will search G2, Gartner, and vendor websites to identify 5–8 relevant vendors and score them against your requirements.</p>
+                    {vendors.length > 0 && (
+                      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+                        <div className="rq-metric" style={{ minWidth: 100 }}><div className="rq-metric-label">Vendors found</div><div className="rq-metric-val">{vendors.length}</div></div>
+                        <div className="rq-metric" style={{ minWidth: 100 }}><div className="rq-metric-label">Shortlisted</div><div className="rq-metric-val">{Object.values(vendorStatus).filter(s => s === "shortlisted").length}</div><div className="rq-metric-sub">for RFP</div></div>
+                        <div className="rq-metric" style={{ minWidth: 100 }}><div className="rq-metric-label">Eliminated</div><div className="rq-metric-val">{Object.values(vendorStatus).filter(s => s === "eliminated").length}</div><div className="rq-metric-sub amber">ruled out</div></div>
+                      </div>
+                    )}
+                    <div className="rq-actions" style={{ marginBottom: 20, marginTop: 0 }}>
+                      <button className="rq-btn-primary" onClick={doMarketResearch} disabled={marketBusy}>
+                        {marketBusy ? <><Loader size={13} className="spin" /> Researching vendors…</> : vendors.length > 0 ? <><RefreshCw size={13} /> Re-run research</> : <>Search vendors</>}
+                      </button>
+                    </div>
+                    {marketErr && <div className="rq-error">{marketErr}</div>}
+                    {marketBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 10 }} /><br />Searching G2, Gartner, and vendor sites…</div>}
+                    {!marketBusy && vendors.map(v => {
+                      const status = vendorStatus[v.name];
+                      const matchPct = v.requirementsTotal > 0 ? v.requirementsMatch / v.requirementsTotal : 0;
+                      return (
+                        <div key={v.name} className={`vendor-card rq-fade${status === "shortlisted" ? " shortlisted" : status === "eliminated" ? " eliminated" : ""}`}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div className="vendor-name">{v.name}</div>
+                              <div className="vendor-category">{v.category}</div>
+                            </div>
+                            {status === "shortlisted" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#5DCAA5", background: "rgba(93,202,165,0.12)", padding: "3px 8px", borderRadius: 3, flexShrink: 0 }}>Shortlisted</span>}
+                            {status === "eliminated" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#e07070", background: "rgba(184,80,80,0.1)", padding: "3px 8px", borderRadius: 3, flexShrink: 0 }}>Eliminated</span>}
+                          </div>
+                          <div className="vendor-meta">
+                            {v.g2Rating && v.g2Rating !== "N/A" && <div className="vendor-rating"><span style={{ color: "#EF9F27" }}>★</span> {v.g2Rating}</div>}
+                            {v.g2ReviewCount && v.g2ReviewCount !== "N/A" && <div className="vendor-reviews">{v.g2ReviewCount}</div>}
+                          </div>
+                          <div className="vendor-desc">{v.description}</div>
+                          <div className="vendor-match">
+                            <div className={`confidence-dot confidence-${v.matchConfidence || "low"}`} />
+                            <div className="vendor-match-bar">
+                              <div className={`vendor-match-fill ${v.matchConfidence === "medium" ? "medium" : v.matchConfidence === "low" ? "low" : ""}`} style={{ width: `${matchPct * 100}%` }} />
+                            </div>
+                            <div className="vendor-match-text">{v.requirementsMatch} of {v.requirementsTotal} requirements likely met</div>
+                          </div>
+                          <div className="vendor-actions">
+                            <button className={`vendor-btn vendor-btn-shortlist${status === "shortlisted" ? " active" : ""}`} onClick={() => toggleVendorStatus(v.name, "shortlisted")}>{status === "shortlisted" ? "✓ Shortlisted" : "Shortlist"}</button>
+                            <button className={`vendor-btn vendor-btn-eliminate${status === "eliminated" ? " active" : ""}`} onClick={() => toggleVendorStatus(v.name, "eliminated")}>{status === "eliminated" ? "✗ Eliminated" : "Eliminate"}</button>
+                            {v.g2Url && <a href={v.g2Url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}><button className="vendor-btn vendor-btn-g2">G2 ↗</button></a>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── Agent steps ── */}
+            {view === "agent" && (
+              <>
+                {step >= 1 && (
+                  <div className="rq-metrics">
+                    <div className="rq-metric"><div className="rq-metric-label">Requirements</div><div className="rq-metric-val">{requirements.length}</div><div className="rq-metric-sub">binary</div></div>
+                    <div className="rq-metric"><div className="rq-metric-label">Questions</div><div className="rq-metric-val">{openQ + mcQ}</div><div className="rq-metric-sub">{answeredReqs > 0 ? `${answeredReqs} reqs covered` : "not yet generated"}</div></div>
+                    <div className="rq-metric"><div className="rq-metric-label">Open ended</div><div className="rq-metric-val">{openQ}</div><div className="rq-metric-sub amber">of {openQ + mcQ || "—"}</div></div>
+                    <div className="rq-metric"><div className="rq-metric-label">Multiple choice</div><div className="rq-metric-val">{mcQ}</div><div className="rq-metric-sub amber">of {openQ + mcQ || "—"}</div></div>
+                  </div>
+                )}
+
+                {/* Step 0: Scope */}
+                {step === 0 && (
+                  <div className="rq-fade">
+                    <div className="rq-section-label" style={{ marginBottom: 6 }}>Project title</div>
+                    <input className="rq-input" style={{ marginBottom: 22 }} placeholder="e.g. Enterprise Tool Tracking System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
+                    <div className="rq-section-label" style={{ marginBottom: 14 }}>Project intake</div>
+                    {FIVE_WS.map(w => (
+                      <div className="rq-5w-card" key={w.key}>
+                        <div className="rq-5w-label">{w.label}</div>
+                        <div className="rq-5w-question">{w.question}</div>
+                        <textarea key={`ta-${w.key}`} name={w.key} className="rq-textarea" placeholder={w.placeholder} value={answers[w.key]} onChange={e => { const k = w.key, v = e.target.value; setAnswers(p => ({ ...p, [k]: v })); }} rows={2} />
+                      </div>
+                    ))}
+                    {scopeErr && <div className="rq-error">{scopeErr}</div>}
+                    {formalScope && (
+                      <div style={{ marginTop: 20 }} className="rq-fade">
+                        <div className="rq-section-label">Generated scope</div>
+                        {editingScope ? (
+                          <>
+                            <textarea className="rq-textarea" value={formalScope} onChange={e => setFormalScope(e.target.value)} rows={5} style={{ marginBottom: 10 }} />
+                            <div className="rq-actions"><button className="rq-btn-ghost" onClick={async () => { setEditingScope(false); await doEvaluateScope(formalScope); }}><Check size={12} /> Done editing</button></div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="rq-scope-box">{formalScope}</div>
+                            <div className="rq-actions">
+                              <button className="rq-btn-ghost" onClick={() => setEditingScope(true)}><Pencil size={12} /> Edit</button>
+                              <button className="rq-btn-ghost" onClick={doGenerateScope} disabled={scopeBusy}><RefreshCw size={12} /> Regenerate</button>
+                            </div>
+                          </>
+                        )}
+                        {scopeFlags.length > 0 && !editingScope && (
+                          <div style={{ marginTop: 18 }} className="rq-fade">
+                            <div className="rq-section-label" style={{ marginBottom: 10 }}>Scope review — action required</div>
+                            {scopeFlags.map(flag => {
+                              const val = flagResponses[flag.criterion] || "";
+                              const skipped = isSkipped(val);
+                              return (
+                                <div className="rq-flag-card" key={flag.criterion} style={{ opacity: skipped ? 0.5 : 1 }}>
+                                  <div className="rq-flag-title"><AlertTriangle size={13} /> {flag.criterion}{skipped && <span style={{ marginLeft: 8, fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#EF9F27", background: "rgba(239,159,39,0.15)", padding: "2px 7px", borderRadius: 3 }}>SKIPPED</span>}</div>
+                                  {!skipped && <div className="rq-flag-text">{flag.prompt}</div>}
+                                  <textarea className="rq-textarea" placeholder={`Your response… (type "skip" to dismiss)`} value={val} onChange={e => setFlagResponses(p => ({ ...p, [flag.criterion]: e.target.value }))} rows={skipped ? 1 : 2} style={{ opacity: skipped ? 0.6 : 1 }} />
+                                </div>
+                              );
+                            })}
+                            <div className="rq-actions">
+                              <button className="rq-btn-primary" onClick={doRefineScope} disabled={scopeBusy || !allFlagResponsesFilled}>
+                                {scopeBusy ? <><Loader size={13} className="spin" /> Refining…</> : <>Refine scope <ChevronRight size={13} /></>}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {scopeApproved && !editingScope && (
+                          <div style={{ marginTop: 14 }} className="rq-fade">
+                            <div className="rq-scope-approved"><CheckCircle size={15} /> Scope approved — all criteria met</div>
+                            <div className="rq-actions"><button className="rq-btn-primary" onClick={() => { setStep(1); doGenerateReqs(); }}>Generate requirements <ChevronRight size={13} /></button></div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {!formalScope && (
+                      <div className="rq-actions" style={{ marginTop: 8 }}>
+                        <button className="rq-btn-primary" onClick={doGenerateScope} disabled={!allAnswered || scopeBusy}>
+                          {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 1: Requirements */}
+                {step === 1 && (
+                  <div className="rq-fade">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+                      <p className="rq-hint" style={{ marginBottom: 0 }}>Edit, delete, or add your own below.</p>
+                      <button className="rq-btn-ghost" onClick={doGenerateReqs} disabled={reqsBusy}>{reqsBusy ? <Loader size={11} className="spin" /> : <RefreshCw size={11} />} Regenerate</button>
+                    </div>
+                    {reqsBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating requirements…</div>}
+                    {reqsErr && <div className="rq-error">{reqsErr}</div>}
+                    {!reqsBusy && requirements.map(req => (
+                      <div className="rq-card rq-fade" key={req.id}>
+                        <div className="rq-req-id">{req.id}</div>
+                        {editId === req.id ? (
+                          <>
+                            <input className="rq-input" value={editText} onChange={e => setEditText(e.target.value)} style={{ marginTop: 8, marginBottom: 10 }} />
+                            <div className="rq-row"><button className="rq-btn-ghost" onClick={() => saveEdit(req.id)}><Check size={11} /> Save</button><button className="rq-btn-ghost" onClick={() => setEditId(null)}><X size={11} /> Cancel</button></div>
+                          </>
+                        ) : (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                            <div className="rq-req-text">{req.text}</div>
+                            <div className="rq-row" style={{ flexShrink: 0 }}>
+                              <button className="rq-btn-icon" onClick={() => { setEditId(req.id); setEditText(req.text); }}><Pencil size={12} /></button>
+                              <button className="rq-btn-icon rq-btn-del" onClick={() => deleteReq(req.id)}><Trash2 size={12} /></button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {!reqsBusy && (
+                      <div className="rq-row" style={{ marginTop: 8 }}>
+                        <input className="rq-input" placeholder="Add your own requirement…" value={newReq} onChange={e => setNewReq(e.target.value)} onKeyDown={e => e.key === "Enter" && addReq()} />
+                        <button className="rq-btn-ghost" onClick={addReq} disabled={!newReq.trim()} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Add</button>
+                      </div>
+                    )}
+                    {!reqsBusy && requirements.length > 0 && (
+                      <div className="rq-actions" style={{ marginTop: 22 }}>
+                        <button className="rq-btn-ghost" onClick={() => setStep(0)}>← Back</button>
+                        <button className="rq-btn-primary" onClick={() => setStep(2)}>Continue to questions <ChevronRight size={13} /></button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 2: Questions */}
+                {step === 2 && (
+                  <div className="rq-fade">
+                    <p className="rq-hint">The agent will generate 2–3 follow-up questions per requirement — a mix of open-ended and multiple choice.</p>
+                    {qErr && <div className="rq-error">{qErr}</div>}
+                    {qBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating questions for {requirements.length} requirement{requirements.length !== 1 ? "s" : ""}…</div>}
+                    {!qBusy && Object.keys(questions).length === 0 && (
+                      <div className="rq-actions">
+                        <button className="rq-btn-ghost" onClick={() => setStep(1)}>← Back</button>
+                        <button className="rq-btn-primary" onClick={doGenerateQuestions}>Generate questions <ChevronRight size={13} /></button>
+                      </div>
+                    )}
+                    {!qBusy && Object.keys(questions).length > 0 && (
+                      <>
+                        {requirements.map(req => {
+                          const qs = questions[req.id] || [];
+                          return (
+                            <div key={req.id} style={{ marginBottom: 22 }}>
+                              <div className="rq-req-group-label">{req.id} — {req.text}</div>
+                              {qs.map((q, i) => (
+                                <div className="rq-q-card" key={i}>
+                                  <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open ended" : "Multiple choice"}</div>
+                                  <div className="rq-q-text">{q.text}</div>
+                                  {q.type === "multiple_choice" && q.options?.length && (
+                                    <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                        <div className="rq-actions">
+                          <button className="rq-btn-ghost" onClick={doGenerateQuestions} disabled={qBusy}><RefreshCw size={11} /> Regenerate</button>
+                          <button className="rq-btn-primary" onClick={() => setStep(3)}>Continue to review <ChevronRight size={13} /></button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 3: Export */}
+                {step === 3 && (
+                  <div className="rq-fade">
+                    <div style={{ background: "#1b2530", border: "1px solid rgba(93,202,165,0.2)", borderRadius: 8, padding: "32px 28px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#607a8a", marginBottom: 8 }}>Ready to export</div>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 700, color: "#d8eaf2", marginBottom: 20 }}>{projectTitle || "Untitled project"}</div>
+                      <div style={{ display: "flex", justifyContent: "center", gap: 24, marginBottom: 28, flexWrap: "wrap" }}>
+                        <div style={{ textAlign: "center" }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 500, color: "#5DCAA5" }}>{requirements.length}</div><div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#607a8a", letterSpacing: ".1em", textTransform: "uppercase" }}>Requirements</div></div>
+                        <div style={{ textAlign: "center" }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 500, color: "#5DCAA5" }}>{openQ + mcQ}</div><div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#607a8a", letterSpacing: ".1em", textTransform: "uppercase" }}>Questions</div></div>
+                        <div style={{ textAlign: "center" }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 500, color: "#EF9F27" }}>{vendors.filter(v => vendorStatus[v.name] === "shortlisted").length}</div><div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#607a8a", letterSpacing: ".1em", textTransform: "uppercase" }}>Shortlisted</div></div>
+                        <div style={{ textAlign: "center" }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 500, color: "#a8c8d8" }}>{activities.length}</div><div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#607a8a", letterSpacing: ".1em", textTransform: "uppercase" }}>Activities</div></div>
+                      </div>
+                      {exportErr && <div className="rq-error" style={{ marginBottom: 16, textAlign: "left" }}>{exportErr}</div>}
+                      <button className="rq-btn-primary" onClick={doExport} disabled={exportBusy} style={{ padding: "13px 32px", fontSize: 13 }}>
+                        {exportBusy ? <><Loader size={14} className="spin" /> Exporting…</> : <><FileText size={14} /> Export to .docx</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
           </div>
         </div>
       </div>
