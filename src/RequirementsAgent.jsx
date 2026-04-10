@@ -749,7 +749,7 @@ export default function RequirementsAgent() {
     }
     if (d.vendors) setVendors(d.vendors);
     if (d.vendorStatus) setVendorStatus(d.vendorStatus);
-    setView("agent");
+    setView("scope");
     setLastSaved(new Date(row.updated_at));
   };
 
@@ -823,7 +823,7 @@ export default function RequirementsAgent() {
     try {
       const out = {};
       for (const req of requirements) out[req.id] = await callJSON(P_QS, `Requirement: ${req.text}`);
-      setQuestions(out); setStep(3);
+      setQuestions(out);
     } catch { setQErr("Could not generate questions. Please try again."); }
     finally { setQBusy(false); }
   };
@@ -923,17 +923,25 @@ export default function RequirementsAgent() {
   };
 
   const pct = (step / 3) * 100;
-  const stepLabels = ["Scope", "Requirements", "Questions", "Review"];
+  const NAV_VIEWS = ["scope", "requirements", "questions", "market", "timeline", "review"];
+  const NAV_LABELS = ["Scope", "Requirements", "Questions", "Market", "Timeline", "Review"];
   const answeredReqs = Object.keys(questions).length;
   const openQ = Object.values(questions).flat().filter(q => q.type === "open_ended").length;
   const mcQ = Object.values(questions).flat().filter(q => q.type === "multiple_choice").length;
 
-  const topbarTitles = { splash: "Home", sessions: "Sessions", timeline: "Timeline", market: "Market Research", agent: stepLabels[step] || "Scope" };
+  const topbarTitles = {
+    splash: "Home", sessions: "Sessions",
+    scope: "Scope", requirements: "Requirements", questions: "Questions",
+    market: "Market Research", timeline: "Timeline", review: "Review",
+  };
   const topbarSubs = {
     splash: "Jake's RFP Builder", sessions: "All sessions",
-    timeline: projectTitle || "Untitled project",
+    scope: projectTitle || "Untitled project",
+    requirements: projectTitle || "Untitled project",
+    questions: projectTitle || "Untitled project",
     market: (projectTitle || "Untitled project") + " · Vendor identification",
-    agent: (projectTitle || "Untitled project") + ` · Step ${step + 1} of 4`,
+    timeline: projectTitle || "Untitled project",
+    review: (projectTitle || "Untitled project") + " · Executive snapshot",
   };
 
   // ── Splash ──
@@ -963,7 +971,7 @@ export default function RequirementsAgent() {
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#5DCAA5", marginBottom: 12 }}>Procurement</div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: "#d8eaf2", marginBottom: 12, lineHeight: 1.15 }}>Jake's RFP Builder</div>
                 <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#607a8a", lineHeight: 1.7, marginBottom: 36 }}>AI-powered procurement requirements tool. Build a scoped, structured RFP in minutes — scope, requirements, discovery questions, timeline, and vendor shortlist.</div>
-                <button className="rq-btn-primary" style={{ padding: "14px 32px", fontSize: 13 }} onClick={() => { setStep(0); setView("agent"); }}>
+                <button className="rq-btn-primary" style={{ padding: "14px 32px", fontSize: 13 }} onClick={() => { setView("scope"); }}>
                   <Plus size={15} /> Start new session
                 </button>
                 <div style={{ marginTop: 16 }}>
@@ -983,25 +991,18 @@ export default function RequirementsAgent() {
       <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
         <div className="rq-sidebar-brand">Procurement</div>
         <div className="rq-sidebar-title">Agent</div>
-        {view === "agent" && <div className="rq-sidebar-session">{sessionId}</div>}
+        <div className="rq-sidebar-session">{sessionId}</div>
       </div>
       <div className="rq-nav">
-        {stepLabels.map((label, i) => (
-          <div key={label}
-            className={`rq-nav-item ${view === "agent" && i === step ? "active" : view === "agent" && i < step ? "done" : ""}`}
-            onClick={() => { if (i <= step) { setView("agent"); setStep(i); } }}
+        {NAV_VIEWS.map((v, i) => (
+          <div key={v}
+            className={`rq-nav-item ${view === v ? "active" : ""}`}
+            onClick={() => setView(v)}
           >
-            <div className="rq-nav-num">{view === "agent" && i < step ? <CheckCircle size={11} /> : i + 1}</div>
-            {label}
+            <div className="rq-nav-num">{i + 1}</div>
+            {NAV_LABELS[i]}
           </div>
         ))}
-        <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
-        <div className={`rq-nav-item ${view === "timeline" ? "active" : ""}`} onClick={() => setView("timeline")}>
-          <div className="rq-nav-num" style={{ fontSize: 8 }}>TL</div>Timeline
-        </div>
-        <div className={`rq-nav-item ${view === "market" ? "active" : ""}`} onClick={() => setView("market")}>
-          <div className="rq-nav-num" style={{ fontSize: 8 }}>M</div>Market
-        </div>
         <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
         <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => setView("sessions")}>
           <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Sessions
@@ -1029,7 +1030,7 @@ export default function RequirementsAgent() {
           {saveStatus === "idle" && lastSaved && <span style={{ color: "#3a5060" }}><Clock size={11} style={{ display: "inline", marginRight: 4 }} />{lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
         </div>
         <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
-        <button className="rq-export-btn" onClick={doExport} disabled={step < 3 || exportBusy}>
+        <button className="rq-export-btn" onClick={doExport} disabled={!formalScope || exportBusy}>
           {exportBusy ? <Loader size={14} className="spin" /> : <FileText size={14} />} Export .docx
         </button>
       </div>
@@ -1049,7 +1050,7 @@ export default function RequirementsAgent() {
               <div className="rq-fade">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                   <div className="rq-section-label" style={{ marginBottom: 0 }}>{sessionsList.length} session{sessionsList.length !== 1 ? "s" : ""}</div>
-                  <button className="rq-btn-primary" onClick={() => { setStep(0); setView("agent"); }}><Plus size={13} /> New session</button>
+                  <button className="rq-btn-primary" onClick={() => { setView("scope"); }}><Plus size={13} /> New session</button>
                 </div>
                 {sessionsLoading && <div className="rq-loading-center"><Loader size={18} className="spin" /></div>}
                 {!sessionsLoading && sessionsList.length === 0 && (
@@ -1145,7 +1146,7 @@ export default function RequirementsAgent() {
                 {!formalScope || !scopeApproved ? (
                   <div style={{ textAlign: "center", padding: "48px 0" }}>
                     <div style={{ color: "#607a8a", fontSize: 14, fontStyle: "italic", marginBottom: 16 }}>Complete and approve the project scope first.</div>
-                    <button className="rq-btn-primary" onClick={() => { setStep(0); setView("agent"); }}>Go to Scope <ChevronRight size={13} /></button>
+                    <button className="rq-btn-primary" onClick={() => { setView("scope"); }}>Go to Scope <ChevronRight size={13} /></button>
                   </div>
                 ) : (
                   <>
@@ -1202,192 +1203,244 @@ export default function RequirementsAgent() {
               </div>
             )}
 
-            {/* ── Agent steps ── */}
-            {view === "agent" && (
-              <>
-                {step >= 1 && (
-                  <div className="rq-metrics">
-                    <div className="rq-metric"><div className="rq-metric-label">Requirements</div><div className="rq-metric-val">{requirements.length}</div><div className="rq-metric-sub">binary</div></div>
-                    <div className="rq-metric"><div className="rq-metric-label">Questions</div><div className="rq-metric-val">{openQ + mcQ}</div><div className="rq-metric-sub">{answeredReqs > 0 ? `${answeredReqs} reqs covered` : "not yet generated"}</div></div>
-                    <div className="rq-metric"><div className="rq-metric-label">Open ended</div><div className="rq-metric-val">{openQ}</div><div className="rq-metric-sub amber">of {openQ + mcQ || "—"}</div></div>
-                    <div className="rq-metric"><div className="rq-metric-label">Multiple choice</div><div className="rq-metric-val">{mcQ}</div><div className="rq-metric-sub amber">of {openQ + mcQ || "—"}</div></div>
+            {/* ── Scope ── */}
+            {view === "scope" && (
+              <div className="rq-fade">
+                <div className="rq-section-label" style={{ marginBottom: 6 }}>Project title</div>
+                <input className="rq-input" style={{ marginBottom: 22 }} placeholder="e.g. Enterprise Tool Tracking System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
+                <div className="rq-section-label" style={{ marginBottom: 14 }}>Project intake</div>
+                {FIVE_WS.map(w => (
+                  <div className="rq-5w-card" key={w.key}>
+                    <div className="rq-5w-label">{w.label}</div>
+                    <div className="rq-5w-question">{w.question}</div>
+                    <textarea key={`ta-${w.key}`} name={w.key} className="rq-textarea" placeholder={w.placeholder} value={answers[w.key]} onChange={e => { const k = w.key, v = e.target.value; setAnswers(p => ({ ...p, [k]: v })); }} rows={2} />
                   </div>
-                )}
-
-                {/* Step 0: Scope */}
-                {step === 0 && (
-                  <div className="rq-fade">
-                    <div className="rq-section-label" style={{ marginBottom: 6 }}>Project title</div>
-                    <input className="rq-input" style={{ marginBottom: 22 }} placeholder="e.g. Enterprise Tool Tracking System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
-                    <div className="rq-section-label" style={{ marginBottom: 14 }}>Project intake</div>
-                    {FIVE_WS.map(w => (
-                      <div className="rq-5w-card" key={w.key}>
-                        <div className="rq-5w-label">{w.label}</div>
-                        <div className="rq-5w-question">{w.question}</div>
-                        <textarea key={`ta-${w.key}`} name={w.key} className="rq-textarea" placeholder={w.placeholder} value={answers[w.key]} onChange={e => { const k = w.key, v = e.target.value; setAnswers(p => ({ ...p, [k]: v })); }} rows={2} />
-                      </div>
-                    ))}
-                    {scopeErr && <div className="rq-error">{scopeErr}</div>}
-                    {formalScope && (
-                      <div style={{ marginTop: 20 }} className="rq-fade">
-                        <div className="rq-section-label">Generated scope</div>
-                        {editingScope ? (
-                          <>
-                            <textarea className="rq-textarea" value={formalScope} onChange={e => setFormalScope(e.target.value)} rows={5} style={{ marginBottom: 10 }} />
-                            <div className="rq-actions"><button className="rq-btn-ghost" onClick={async () => { setEditingScope(false); await doEvaluateScope(formalScope); }}><Check size={12} /> Done editing</button></div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="rq-scope-box">{formalScope}</div>
-                            <div className="rq-actions">
-                              <button className="rq-btn-ghost" onClick={() => setEditingScope(true)}><Pencil size={12} /> Edit</button>
-                              <button className="rq-btn-ghost" onClick={doGenerateScope} disabled={scopeBusy}><RefreshCw size={12} /> Regenerate</button>
-                            </div>
-                          </>
-                        )}
-                        {scopeFlags.length > 0 && !editingScope && (
-                          <div style={{ marginTop: 18 }} className="rq-fade">
-                            <div className="rq-section-label" style={{ marginBottom: 10 }}>Scope review — action required</div>
-                            {scopeFlags.map(flag => {
-                              const val = flagResponses[flag.criterion] || "";
-                              const skipped = isSkipped(val);
-                              return (
-                                <div className="rq-flag-card" key={flag.criterion} style={{ opacity: skipped ? 0.5 : 1 }}>
-                                  <div className="rq-flag-title"><AlertTriangle size={13} /> {flag.criterion}{skipped && <span style={{ marginLeft: 8, fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#EF9F27", background: "rgba(239,159,39,0.15)", padding: "2px 7px", borderRadius: 3 }}>SKIPPED</span>}</div>
-                                  {!skipped && <div className="rq-flag-text">{flag.prompt}</div>}
-                                  <textarea className="rq-textarea" placeholder={`Your response… (type "skip" to dismiss)`} value={val} onChange={e => setFlagResponses(p => ({ ...p, [flag.criterion]: e.target.value }))} rows={skipped ? 1 : 2} style={{ opacity: skipped ? 0.6 : 1 }} />
-                                </div>
-                              );
-                            })}
-                            <div className="rq-actions">
-                              <button className="rq-btn-primary" onClick={doRefineScope} disabled={scopeBusy || !allFlagResponsesFilled}>
-                                {scopeBusy ? <><Loader size={13} className="spin" /> Refining…</> : <>Refine scope <ChevronRight size={13} /></>}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                        {scopeApproved && !editingScope && (
-                          <div style={{ marginTop: 14 }} className="rq-fade">
-                            <div className="rq-scope-approved"><CheckCircle size={15} /> Scope approved — all criteria met</div>
-                            <div className="rq-actions"><button className="rq-btn-primary" onClick={() => { setStep(1); doGenerateReqs(); }}>Generate requirements <ChevronRight size={13} /></button></div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {!formalScope && (
-                      <div className="rq-actions" style={{ marginTop: 8 }}>
-                        <button className="rq-btn-primary" onClick={doGenerateScope} disabled={!allAnswered || scopeBusy}>
-                          {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Step 1: Requirements */}
-                {step === 1 && (
-                  <div className="rq-fade">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
-                      <p className="rq-hint" style={{ marginBottom: 0 }}>Edit, delete, or add your own below.</p>
-                      <button className="rq-btn-ghost" onClick={doGenerateReqs} disabled={reqsBusy}>{reqsBusy ? <Loader size={11} className="spin" /> : <RefreshCw size={11} />} Regenerate</button>
-                    </div>
-                    {reqsBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating requirements…</div>}
-                    {reqsErr && <div className="rq-error">{reqsErr}</div>}
-                    {!reqsBusy && requirements.map(req => (
-                      <div className="rq-card rq-fade" key={req.id}>
-                        <div className="rq-req-id">{req.id}</div>
-                        {editId === req.id ? (
-                          <>
-                            <input className="rq-input" value={editText} onChange={e => setEditText(e.target.value)} style={{ marginTop: 8, marginBottom: 10 }} />
-                            <div className="rq-row"><button className="rq-btn-ghost" onClick={() => saveEdit(req.id)}><Check size={11} /> Save</button><button className="rq-btn-ghost" onClick={() => setEditId(null)}><X size={11} /> Cancel</button></div>
-                          </>
-                        ) : (
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                            <div className="rq-req-text">{req.text}</div>
-                            <div className="rq-row" style={{ flexShrink: 0 }}>
-                              <button className="rq-btn-icon" onClick={() => { setEditId(req.id); setEditText(req.text); }}><Pencil size={12} /></button>
-                              <button className="rq-btn-icon rq-btn-del" onClick={() => deleteReq(req.id)}><Trash2 size={12} /></button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {!reqsBusy && (
-                      <div className="rq-row" style={{ marginTop: 8 }}>
-                        <input className="rq-input" placeholder="Add your own requirement…" value={newReq} onChange={e => setNewReq(e.target.value)} onKeyDown={e => e.key === "Enter" && addReq()} />
-                        <button className="rq-btn-ghost" onClick={addReq} disabled={!newReq.trim()} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Add</button>
-                      </div>
-                    )}
-                    {!reqsBusy && requirements.length > 0 && (
-                      <div className="rq-actions" style={{ marginTop: 22 }}>
-                        <button className="rq-btn-ghost" onClick={() => setStep(0)}>← Back</button>
-                        <button className="rq-btn-primary" onClick={() => setStep(2)}>Continue to questions <ChevronRight size={13} /></button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Step 2: Questions */}
-                {step === 2 && (
-                  <div className="rq-fade">
-                    <p className="rq-hint">The agent will generate 2–3 follow-up questions per requirement — a mix of open-ended and multiple choice.</p>
-                    {qErr && <div className="rq-error">{qErr}</div>}
-                    {qBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating questions for {requirements.length} requirement{requirements.length !== 1 ? "s" : ""}…</div>}
-                    {!qBusy && Object.keys(questions).length === 0 && (
-                      <div className="rq-actions">
-                        <button className="rq-btn-ghost" onClick={() => setStep(1)}>← Back</button>
-                        <button className="rq-btn-primary" onClick={doGenerateQuestions}>Generate questions <ChevronRight size={13} /></button>
-                      </div>
-                    )}
-                    {!qBusy && Object.keys(questions).length > 0 && (
+                ))}
+                {scopeErr && <div className="rq-error">{scopeErr}</div>}
+                {formalScope && (
+                  <div style={{ marginTop: 20 }} className="rq-fade">
+                    <div className="rq-section-label">Generated scope</div>
+                    {editingScope ? (
                       <>
-                        {requirements.map(req => {
-                          const qs = questions[req.id] || [];
+                        <textarea className="rq-textarea" value={formalScope} onChange={e => setFormalScope(e.target.value)} rows={5} style={{ marginBottom: 10 }} />
+                        <div className="rq-actions"><button className="rq-btn-ghost" onClick={async () => { setEditingScope(false); await doEvaluateScope(formalScope); }}><Check size={12} /> Done editing</button></div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="rq-scope-box">{formalScope}</div>
+                        <div className="rq-actions">
+                          <button className="rq-btn-ghost" onClick={() => setEditingScope(true)}><Pencil size={12} /> Edit</button>
+                          <button className="rq-btn-ghost" onClick={doGenerateScope} disabled={scopeBusy}><RefreshCw size={12} /> Regenerate</button>
+                        </div>
+                      </>
+                    )}
+                    {scopeFlags.length > 0 && !editingScope && (
+                      <div style={{ marginTop: 18 }} className="rq-fade">
+                        <div className="rq-section-label" style={{ marginBottom: 10 }}>Scope review — action required</div>
+                        {scopeFlags.map(flag => {
+                          const val = flagResponses[flag.criterion] || "";
+                          const skipped = isSkipped(val);
                           return (
-                            <div key={req.id} style={{ marginBottom: 22 }}>
-                              <div className="rq-req-group-label">{req.id} — {req.text}</div>
-                              {qs.map((q, i) => (
-                                <div className="rq-q-card" key={i}>
-                                  <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open ended" : "Multiple choice"}</div>
-                                  <div className="rq-q-text">{q.text}</div>
-                                  {q.type === "multiple_choice" && q.options?.length && (
-                                    <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
-                                  )}
-                                </div>
-                              ))}
+                            <div className="rq-flag-card" key={flag.criterion} style={{ opacity: skipped ? 0.5 : 1 }}>
+                              <div className="rq-flag-title"><AlertTriangle size={13} /> {flag.criterion}{skipped && <span style={{ marginLeft: 8, fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#EF9F27", background: "rgba(239,159,39,0.15)", padding: "2px 7px", borderRadius: 3 }}>SKIPPED</span>}</div>
+                              {!skipped && <div className="rq-flag-text">{flag.prompt}</div>}
+                              <textarea className="rq-textarea" placeholder={`Your response… (type "skip" to dismiss)`} value={val} onChange={e => setFlagResponses(p => ({ ...p, [flag.criterion]: e.target.value }))} rows={skipped ? 1 : 2} style={{ opacity: skipped ? 0.6 : 1 }} />
                             </div>
                           );
                         })}
                         <div className="rq-actions">
-                          <button className="rq-btn-ghost" onClick={doGenerateQuestions} disabled={qBusy}><RefreshCw size={11} /> Regenerate</button>
-                          <button className="rq-btn-primary" onClick={() => setStep(3)}>Continue to review <ChevronRight size={13} /></button>
+                          <button className="rq-btn-primary" onClick={doRefineScope} disabled={scopeBusy || !allFlagResponsesFilled}>
+                            {scopeBusy ? <><Loader size={13} className="spin" /> Refining…</> : <>Refine scope <ChevronRight size={13} /></>}
+                          </button>
                         </div>
-                      </>
+                      </div>
+                    )}
+                    {scopeApproved && !editingScope && (
+                      <div style={{ marginTop: 14 }} className="rq-fade">
+                        <div className="rq-scope-approved"><CheckCircle size={15} /> Scope approved — all criteria met</div>
+                        <div className="rq-actions">
+                          <button className="rq-btn-primary" onClick={() => { setView("requirements"); doGenerateReqs(); }}>Generate requirements <ChevronRight size={13} /></button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
-
-                {/* Step 3: Export */}
-                {step === 3 && (
-                  <div className="rq-fade">
-                    <div style={{ background: "#1b2530", border: "1px solid rgba(93,202,165,0.2)", borderRadius: 8, padding: "32px 28px", textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#607a8a", marginBottom: 8 }}>Ready to export</div>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 700, color: "#d8eaf2", marginBottom: 20 }}>{projectTitle || "Untitled project"}</div>
-                      <div style={{ display: "flex", justifyContent: "center", gap: 24, marginBottom: 28, flexWrap: "wrap" }}>
-                        <div style={{ textAlign: "center" }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 500, color: "#5DCAA5" }}>{requirements.length}</div><div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#607a8a", letterSpacing: ".1em", textTransform: "uppercase" }}>Requirements</div></div>
-                        <div style={{ textAlign: "center" }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 500, color: "#5DCAA5" }}>{openQ + mcQ}</div><div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#607a8a", letterSpacing: ".1em", textTransform: "uppercase" }}>Questions</div></div>
-                        <div style={{ textAlign: "center" }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 500, color: "#EF9F27" }}>{vendors.filter(v => vendorStatus[v.name] === "shortlisted").length}</div><div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#607a8a", letterSpacing: ".1em", textTransform: "uppercase" }}>Shortlisted</div></div>
-                        <div style={{ textAlign: "center" }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 500, color: "#a8c8d8" }}>{activities.length}</div><div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#607a8a", letterSpacing: ".1em", textTransform: "uppercase" }}>Activities</div></div>
-                      </div>
-                      {exportErr && <div className="rq-error" style={{ marginBottom: 16, textAlign: "left" }}>{exportErr}</div>}
-                      <button className="rq-btn-primary" onClick={doExport} disabled={exportBusy} style={{ padding: "13px 32px", fontSize: 13 }}>
-                        {exportBusy ? <><Loader size={14} className="spin" /> Exporting…</> : <><FileText size={14} /> Export to .docx</>}
-                      </button>
-                    </div>
+                {!formalScope && (
+                  <div className="rq-actions" style={{ marginTop: 8 }}>
+                    <button className="rq-btn-primary" onClick={doGenerateScope} disabled={!allAnswered || scopeBusy}>
+                      {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
+                    </button>
                   </div>
                 )}
-              </>
+              </div>
             )}
+
+            {/* ── Requirements ── */}
+            {view === "requirements" && (
+              <div className="rq-fade">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+                  <p className="rq-hint" style={{ marginBottom: 0 }}>Edit, delete, or add your own below.</p>
+                  <button className="rq-btn-ghost" onClick={doGenerateReqs} disabled={reqsBusy}>{reqsBusy ? <Loader size={11} className="spin" /> : <RefreshCw size={11} />} Regenerate</button>
+                </div>
+                {reqsBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating requirements…</div>}
+                {reqsErr && <div className="rq-error">{reqsErr}</div>}
+                {!reqsBusy && requirements.length === 0 && !reqsErr && (
+                  <div className="rq-actions" style={{ marginBottom: 18 }}>
+                    <button className="rq-btn-primary" onClick={doGenerateReqs} disabled={!formalScope}>
+                      {!formalScope ? "Complete scope first" : <>Generate requirements <ChevronRight size={13} /></>}
+                    </button>
+                  </div>
+                )}
+                {!reqsBusy && requirements.map(req => (
+                  <div className="rq-card rq-fade" key={req.id}>
+                    <div className="rq-req-id">{req.id}</div>
+                    {editId === req.id ? (
+                      <>
+                        <input className="rq-input" value={editText} onChange={e => setEditText(e.target.value)} style={{ marginTop: 8, marginBottom: 10 }} />
+                        <div className="rq-row"><button className="rq-btn-ghost" onClick={() => saveEdit(req.id)}><Check size={11} /> Save</button><button className="rq-btn-ghost" onClick={() => setEditId(null)}><X size={11} /> Cancel</button></div>
+                      </>
+                    ) : (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                        <div className="rq-req-text">{req.text}</div>
+                        <div className="rq-row" style={{ flexShrink: 0 }}>
+                          <button className="rq-btn-icon" onClick={() => { setEditId(req.id); setEditText(req.text); }}><Pencil size={12} /></button>
+                          <button className="rq-btn-icon rq-btn-del" onClick={() => deleteReq(req.id)}><Trash2 size={12} /></button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {!reqsBusy && (
+                  <div className="rq-row" style={{ marginTop: 8 }}>
+                    <input className="rq-input" placeholder="Add your own requirement…" value={newReq} onChange={e => setNewReq(e.target.value)} onKeyDown={e => e.key === "Enter" && addReq()} />
+                    <button className="rq-btn-ghost" onClick={addReq} disabled={!newReq.trim()} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Add</button>
+                  </div>
+                )}
+                {!reqsBusy && requirements.length > 0 && (
+                  <div className="rq-actions" style={{ marginTop: 22 }}>
+                    <button className="rq-btn-primary" onClick={() => setView("questions")}>Continue to questions <ChevronRight size={13} /></button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Questions ── */}
+            {view === "questions" && (
+              <div className="rq-fade">
+                <p className="rq-hint">The agent will generate 2–3 follow-up questions per requirement — a mix of open-ended and multiple choice.</p>
+                {qErr && <div className="rq-error">{qErr}</div>}
+                {qBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating questions for {requirements.length} requirement{requirements.length !== 1 ? "s" : ""}…</div>}
+                {!qBusy && Object.keys(questions).length === 0 && (
+                  <div className="rq-actions">
+                    <button className="rq-btn-primary" onClick={doGenerateQuestions} disabled={requirements.length === 0}>
+                      {requirements.length === 0 ? "Add requirements first" : <>Generate questions <ChevronRight size={13} /></>}
+                    </button>
+                  </div>
+                )}
+                {!qBusy && Object.keys(questions).length > 0 && (
+                  <>
+                    {requirements.map(req => {
+                      const qs = questions[req.id] || [];
+                      return (
+                        <div key={req.id} style={{ marginBottom: 22 }}>
+                          <div className="rq-req-group-label">{req.id} — {req.text}</div>
+                          {qs.map((q, i) => (
+                            <div className="rq-q-card" key={i}>
+                              <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open ended" : "Multiple choice"}</div>
+                              <div className="rq-q-text">{q.text}</div>
+                              {q.type === "multiple_choice" && q.options?.length && (
+                                <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    <div className="rq-actions">
+                      <button className="rq-btn-ghost" onClick={doGenerateQuestions} disabled={qBusy}><RefreshCw size={11} /> Regenerate</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── Review ── */}
+            {view === "review" && (
+              <div className="rq-fade">
+                {/* Scope */}
+                <div className="rq-section-label">Scope</div>
+                {formalScope
+                  ? <div className="rq-scope-box" style={{ marginBottom: 24 }}>{formalScope}</div>
+                  : <div style={{ color: "#3a5060", fontStyle: "italic", fontSize: 13, marginBottom: 24 }}>No scope yet — go to Scope to get started.</div>
+                }
+                <hr className="rq-divider" />
+
+                {/* Requirements */}
+                <div className="rq-section-label">Functional requirements ({requirements.length})</div>
+                {requirements.length > 0 ? (
+                  <div style={{ marginBottom: 24 }}>
+                    {requirements.map(req => (
+                      <div className="rq-card" key={req.id} style={{ cursor: "default" }}>
+                        <div className="rq-req-id">{req.id}</div>
+                        <div className="rq-req-text">{req.text}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ color: "#3a5060", fontStyle: "italic", fontSize: 13, marginBottom: 24 }}>No requirements yet.</div>
+                )}
+                <hr className="rq-divider" />
+
+                {/* Vendor shortlist */}
+                <div className="rq-section-label">Vendor shortlist</div>
+                {vendors.length === 0 ? (
+                  <div style={{ color: "#3a5060", fontStyle: "italic", fontSize: 13, marginBottom: 24 }}>
+                    No vendors yet — go to Market to run vendor research.
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 24 }}>
+                    {vendors.filter(v => vendorStatus[v.name] !== "eliminated").map(v => {
+                      const status = vendorStatus[v.name];
+                      const matchPct = v.requirementsTotal > 0 ? v.requirementsMatch / v.requirementsTotal : 0;
+                      return (
+                        <div key={v.name} className={`vendor-card${status === "shortlisted" ? " shortlisted" : ""}`} style={{ cursor: "default" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                            <div>
+                              <div className="vendor-name">{v.name}</div>
+                              <div className="vendor-category">{v.category}</div>
+                            </div>
+                            {status === "shortlisted" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#5DCAA5", background: "rgba(93,202,165,0.12)", padding: "3px 8px", borderRadius: 3, flexShrink: 0 }}>Shortlisted</span>}
+                          </div>
+                          <div className="vendor-desc" style={{ marginTop: 6, marginBottom: 6 }}>{v.description}</div>
+                          <div className="vendor-match">
+                            <div className={`confidence-dot confidence-${v.matchConfidence || "low"}`} />
+                            <div className="vendor-match-bar">
+                              <div className={`vendor-match-fill ${v.matchConfidence === "medium" ? "medium" : v.matchConfidence === "low" ? "low" : ""}`} style={{ width: `${matchPct * 100}%` }} />
+                            </div>
+                            <div className="vendor-match-text">{v.requirementsMatch} of {v.requirementsTotal} requirements</div>
+                            {v.g2Rating && v.g2Rating !== "N/A" && <div className="vendor-rating" style={{ marginLeft: "auto" }}><span style={{ color: "#EF9F27" }}>★</span> {v.g2Rating}</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <hr className="rq-divider" />
+
+                {/* Gantt */}
+                <div className="rq-section-label">Procurement timeline</div>
+                <GanttChart activities={activities} />
+
+                <hr className="rq-divider" />
+
+                {/* Export */}
+                {exportErr && <div className="rq-error" style={{ marginBottom: 16 }}>{exportErr}</div>}
+                <button className="rq-btn-primary" onClick={doExport} disabled={!formalScope || exportBusy} style={{ padding: "12px 28px" }}>
+                  {exportBusy ? <><Loader size={14} className="spin" /> Exporting…</> : <><FileText size={14} /> Export to .docx</>}
+                </button>
+              </div>
+            )}
+
 
           </div>
         </div>
