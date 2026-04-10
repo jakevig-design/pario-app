@@ -719,6 +719,30 @@ export default function RequirementsAgent() {
     return () => clearInterval(t);
   });
 
+  const resetSession = () => {
+    setProjectTitle("");
+    setAnswers({ who: "", what: "", where: "", when: "", why: "" });
+    setFormalScope("");
+    setScopeFlags([]);
+    setFlagResponses({});
+    setScopeApproved(false);
+    setScopeErr("");
+    setEditingScope(false);
+    setRequirements([]);
+    setReqsErr("");
+    setNewReq("");
+    setEditId(null);
+    setQuestions({});
+    setQErr("");
+    setVendors([]);
+    setVendorStatus({});
+    setMarketErr("");
+    setActivities(makeDefaultActivities(today()));
+    setRfpStart(today());
+    setGoLive(addCalDays(today(), 180));
+    setView("scope");
+  };
+
   const getSessionData = () => ({ step, projectTitle, answers, formalScope, scopeApproved, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus });
 
   const doSave = async (status = "draft") => {
@@ -971,7 +995,7 @@ export default function RequirementsAgent() {
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#5DCAA5", marginBottom: 12 }}>Procurement</div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: "#d8eaf2", marginBottom: 12, lineHeight: 1.15 }}>Jake's RFP Builder</div>
                 <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#607a8a", lineHeight: 1.7, marginBottom: 36 }}>AI-powered procurement requirements tool. Build a scoped, structured RFP in minutes — scope, requirements, discovery questions, timeline, and vendor shortlist.</div>
-                <button className="rq-btn-primary" style={{ padding: "14px 32px", fontSize: 13 }} onClick={() => { setView("scope"); }}>
+                <button className="rq-btn-primary" style={{ padding: "14px 32px", fontSize: 13 }} onClick={resetSession}>
                   <Plus size={15} /> Start new session
                 </button>
                 <div style={{ marginTop: 16 }}>
@@ -1050,7 +1074,7 @@ export default function RequirementsAgent() {
               <div className="rq-fade">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                   <div className="rq-section-label" style={{ marginBottom: 0 }}>{sessionsList.length} session{sessionsList.length !== 1 ? "s" : ""}</div>
-                  <button className="rq-btn-primary" onClick={() => { setView("scope"); }}><Plus size={13} /> New session</button>
+                  <button className="rq-btn-primary" onClick={resetSession}><Plus size={13} /> New session</button>
                 </div>
                 {sessionsLoading && <div className="rq-loading-center"><Loader size={18} className="spin" /></div>}
                 {!sessionsLoading && sessionsList.length === 0 && (
