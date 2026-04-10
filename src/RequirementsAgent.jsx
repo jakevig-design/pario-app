@@ -169,6 +169,36 @@ _style.textContent = `
   .gantt-container{min-width:640px;background:#1b2530;border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:18px}
   .gantt-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#3a5060;margin-bottom:14px}
 
+  /* ── Market research ── */
+  .vendor-card{background:#1b2530;border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:16px 18px;margin-bottom:10px;transition:border-color .15s}
+  .vendor-card:hover{border-color:rgba(93,202,165,0.25)}
+  .vendor-card.shortlisted{border-color:rgba(93,202,165,0.5);background:rgba(93,202,165,0.05)}
+  .vendor-card.eliminated{opacity:.45;border-color:rgba(184,80,80,0.3)}
+  .vendor-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#d8eaf2;margin-bottom:2px}
+  .vendor-category{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#607a8a;margin-bottom:8px}
+  .vendor-meta{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .vendor-rating{font-family:'JetBrains Mono',monospace;font-size:11px;color:#EF9F27;display:flex;align-items:center;gap:4px}
+  .vendor-reviews{font-family:'JetBrains Mono',monospace;font-size:10px;color:#3a5060}
+  .vendor-desc{font-size:12px;color:#a8c8d8;line-height:1.5;margin-bottom:10px}
+  .vendor-match{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .vendor-match-bar{flex:1;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;max-width:120px}
+  .vendor-match-fill{height:100%;border-radius:2px;background:#5DCAA5}
+  .vendor-match-fill.medium{background:#EF9F27}
+  .vendor-match-fill.low{background:#607a8a}
+  .vendor-match-text{font-family:'JetBrains Mono',monospace;font-size:10px;color:#607a8a}
+  .vendor-actions{display:flex;gap:6px}
+  .vendor-btn{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:3px;cursor:pointer;border:1px solid;transition:all .15s}
+  .vendor-btn-shortlist{color:#5DCAA5;border-color:rgba(93,202,165,0.3);background:transparent}
+  .vendor-btn-shortlist:hover,.vendor-btn-shortlist.active{background:rgba(93,202,165,0.15);border-color:#5DCAA5}
+  .vendor-btn-eliminate{color:#e07070;border-color:rgba(184,80,80,0.3);background:transparent}
+  .vendor-btn-eliminate:hover,.vendor-btn-eliminate.active{background:rgba(184,80,80,0.1);border-color:#e07070}
+  .vendor-btn-g2{color:#607a8a;border-color:rgba(255,255,255,0.1);background:transparent}
+  .vendor-btn-g2:hover{color:#a8c8d8;border-color:rgba(255,255,255,0.2)}
+  .confidence-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .confidence-high{background:#5DCAA5}
+  .confidence-medium{background:#EF9F27}
+  .confidence-low{background:#607a8a}
+
   @keyframes spin{to{transform:rotate(360deg)}}
   .spin{animation:spin .8s linear infinite;display:inline-block}
   .rq-fade{animation:fadeUp .3s ease both}
@@ -180,16 +210,17 @@ document.head.appendChild(_style);
 const genId = () => "SES-" + Math.random().toString(36).substring(2, 9).toUpperCase();
 const uid = () => "a" + Date.now() + Math.random().toString(36).substring(2, 5);
 
-async function callClaude(system, user) {
-  const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system, user }) });
+async function callClaude(system, user, useWebSearch = false) {
+  const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system, user, useWebSearch }) });
   if (!res.ok) throw new Error(`API ${res.status}`);
   const d = await res.json();
   if (d.error) throw new Error(d.error.message);
-  return d.content?.find(b => b.type === "text")?.text ?? "";
+  // Extract text from content blocks (web search returns multiple block types)
+  return d.content?.filter(b => b.type === "text").map(b => b.text).join("") ?? "";
 }
 
-async function callJSON(system, user) {
-  const t = await callClaude(system, user);
+async function callJSON(system, user, useWebSearch = false) {
+  const t = await callClaude(system, user, useWebSearch);
   return JSON.parse(t.replace(/```json\s*/g, "").replace(/```/g, "").trim());
 }
 
@@ -478,7 +509,26 @@ RULES:
 Return ONLY valid JSON, no markdown:
 [{"type":"open_ended","text":"..."},{"type":"multiple_choice","text":"...","options":["A","B","C"]}]`;
 
-const STEPS = ["Scope", "Requirements", "Questions", "Review"];
+const P_MARKET = `You are a procurement analyst conducting market research for a software procurement.
+
+Given a project scope and a list of functional requirements, search the web to identify 5-8 relevant software vendors. For each vendor:
+- Search G2.com, Gartner, and vendor websites for current information
+- Focus on vendors that are realistic fits for the described need
+
+Return ONLY a valid JSON array, no markdown, no preamble:
+[{
+  "name": "Vendor Name",
+  "category": "Software category (e.g. ITAM, ERP, CMDB)",
+  "g2Rating": "4.5/5 or N/A if not found",
+  "g2ReviewCount": "1,200 reviews or N/A",
+  "description": "One sentence describing what the vendor does and their key differentiator.",
+  "requirementsMatch": 4,
+  "requirementsTotal": 6,
+  "matchConfidence": "high|medium|low",
+  "g2Url": "https://www.g2.com/products/... or null"
+}]
+
+requirementsMatch should be your best estimate of how many of the provided requirements this vendor likely meets. matchConfidence reflects how certain you are based on available information.`;
 const FIVE_WS = [
   { key: "who", label: "Who", question: "Who will use this system, and who owns this initiative?", placeholder: "e.g. Shop floor technicians will use it daily. The VP of Operations is the project sponsor." },
   { key: "what", label: "What", question: "What problem are you solving, or what capability are you adding?", placeholder: "e.g. We lose track of tools constantly. We need real-time visibility into tool location and condition." },
@@ -488,7 +538,7 @@ const FIVE_WS = [
 ];
 
 // ─── DocX Export ──────────────────────────────────────────────────────────────
-async function buildDocx({ sessionId, projectTitle, formalScope, requirements, questions, activities, rfpStart, goLive }) {
+async function buildDocx({ sessionId, projectTitle, formalScope, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus }) {
   const b = { style: BorderStyle.SINGLE, size: 1, color: "D4CCC4" };
   const borders = { top: b, bottom: b, left: b, right: b };
   const cm = { top: 90, bottom: 90, left: 130, right: 130 };
@@ -568,6 +618,26 @@ async function buildDocx({ sessionId, projectTitle, formalScope, requirements, q
         new Paragraph({ children: [new TextRun({ text: `Start: ${fmtDate(rfpStart)}   |   Go-Live: ${fmtDate(goLive)}${rfpStart && goLive ? `   |   ${calDaysBetween(rfpStart, goLive)} calendar days` : ""}`, font: "Arial", size: 20, color: "6A6058" })] }),
         new Paragraph({ children: [new TextRun("")] }),
         new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [3400, 1900, 1900, 2160], rows: tlRows }),
+        new Paragraph({ children: [new TextRun("")] }),
+        ...(vendors && vendors.length > 0 ? [
+          new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: "5. Vendor Shortlist", font: "Arial" })] }),
+          new Table({
+            width: { size: 9360, type: WidthType.DXA },
+            columnWidths: [2200, 1600, 1200, 1200, 3160],
+            rows: [
+              new TableRow({ children: [hCell("Vendor", 2200), hCell("Category", 1600), hCell("G2 Rating", 1200), hCell("Req. Match", 1200), hCell("Description", 3160)] }),
+              ...vendors
+                .filter(v => !vendorStatus || vendorStatus[v.name] !== "eliminated")
+                .map((v, i) => new TableRow({ children: [
+                  bCell(v.name + (vendorStatus && vendorStatus[v.name] === "shortlisted" ? " ✓" : ""), 2200, i % 2),
+                  bCell(v.category || "—", 1600, i % 2),
+                  bCell(v.g2Rating || "N/A", 1200, i % 2),
+                  bCell(`${v.requirementsMatch}/${v.requirementsTotal}`, 1200, i % 2),
+                  bCell(v.description || "—", 3160, i % 2),
+                ]}))
+            ]
+          })
+        ] : []),
       ]
     }]
   });
@@ -621,9 +691,12 @@ export default function RequirementsAgent() {
   const [newActName, setNewActName] = useState("");
   const [newActGroup, setNewActGroup] = useState("Pre-RFP");
 
-  // Export
-  const [exportBusy, setExportBusy] = useState(false);
-  const [exportErr, setExportErr] = useState("");
+  // Market research
+  const [marketView, setMarketView] = useState(false);
+  const [vendors, setVendors] = useState([]);
+  const [vendorStatus, setVendorStatus] = useState({}); // { vendorName: 'shortlisted' | 'eliminated' }
+  const [marketBusy, setMarketBusy] = useState(false);
+  const [marketErr, setMarketErr] = useState("");
 
   const allAnswered = FIVE_WS.every(w => answers[w.key].trim().length > 0);
   const isSkipped = (val) => val.trim().toLowerCase() === "skip";
@@ -641,7 +714,7 @@ export default function RequirementsAgent() {
     return () => clearInterval(t);
   });
 
-  const getSessionData = () => ({ step, projectTitle, answers, formalScope, scopeApproved, requirements, questions, activities, rfpStart, goLive });
+  const getSessionData = () => ({ step, projectTitle, answers, formalScope, scopeApproved, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus });
 
   const doSave = async (status = "draft") => {
     setSaveStatus("saving");
@@ -669,6 +742,8 @@ export default function RequirementsAgent() {
     } else {
       setActivities(makeDefaultActivities(d.rfpStart || today()));
     }
+    if (d.vendors) setVendors(d.vendors);
+    if (d.vendorStatus) setVendorStatus(d.vendorStatus);
     setView("agent");
     setLastSaved(new Date(row.updated_at));
   };
@@ -812,11 +887,31 @@ export default function RequirementsAgent() {
     setDragId(null); setDragOverId(null);
   };
 
+  // ── Market research ──
+  const doMarketResearch = async () => {
+    setMarketBusy(true); setMarketErr("");
+    try {
+      const reqList = requirements.map(r => r.text).join("\n");
+      const userMsg = `Project scope:\n${formalScope}\n\nFunctional requirements (${requirements.length} total):\n${reqList}`;
+      const result = await callJSON(P_MARKET, userMsg, true);
+      setVendors(result);
+      setVendorStatus({});
+    } catch (e) {
+      setMarketErr("Market research failed. Please try again.");
+    } finally {
+      setMarketBusy(false);
+    }
+  };
+
+  const toggleVendorStatus = (name, status) => {
+    setVendorStatus(p => ({ ...p, [name]: p[name] === status ? null : status }));
+  };
+
   // ── Export ──
   const doExport = async () => {
     setExportBusy(true); setExportErr("");
     try {
-      await buildDocx({ sessionId, projectTitle, formalScope, requirements, questions, activities, rfpStart, goLive });
+      await buildDocx({ sessionId, projectTitle, formalScope, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus });
       await doSave("complete");
     } catch { setExportErr("Export failed. Please try again."); }
     finally { setExportBusy(false); }
@@ -895,11 +990,16 @@ export default function RequirementsAgent() {
           </div>
           <div className="rq-nav">
             {stepLabels.map((label, i) => (
-              <div key={label} className={`rq-nav-item ${i === step ? "active" : i < step ? "done" : ""}`} onClick={() => i <= step && setStep(i)}>
+              <div key={label} className={`rq-nav-item ${!marketView && i === step ? "active" : !marketView && i < step ? "done" : ""}`} onClick={() => { setMarketView(false); i <= step && setStep(i); }}>
                 <div className="rq-nav-num">{i < step ? <CheckCircle size={11} /> : i + 1}</div>
                 {label}
               </div>
             ))}
+            <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
+            <div className={`rq-nav-item ${marketView ? "active" : ""}`} onClick={() => setMarketView(true)}>
+              <div className="rq-nav-num" style={{ fontSize: 8 }}>M</div>
+              Market
+            </div>
           </div>
           <div className="rq-sidebar-footer">
             <button className="rq-btn-ghost" style={{ width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => setView("sessions")}>
@@ -912,8 +1012,8 @@ export default function RequirementsAgent() {
         <div className="rq-main">
           <div className="rq-topbar">
             <div className="rq-topbar-left">
-              <div className="rq-topbar-title">{stepLabels[step]}</div>
-              <div className="rq-topbar-sub">{projectTitle || "Untitled project"} · Step {step + 1} of 4</div>
+              <div className="rq-topbar-title">{marketView ? "Market Research" : stepLabels[step]}</div>
+              <div className="rq-topbar-sub">{projectTitle || "Untitled project"}{marketView ? " · Vendor identification" : ` · Step ${step + 1} of 4`}</div>
             </div>
             <div className="rq-topbar-right">
               <div className={`sv-status ${saveStatus === "idle" ? "" : saveStatus}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, display: "flex", alignItems: "center", gap: 6 }}>
@@ -953,6 +1053,109 @@ export default function RequirementsAgent() {
                   <div className="rq-metric-val">{mcQ}</div>
                   <div className="rq-metric-sub amber">of {openQ + mcQ || "—"}</div>
                 </div>
+              </div>
+            )}
+
+            {/* ── Market Research ── */}
+            {marketView && (
+              <div className="rq-fade">
+                {!formalScope || !scopeApproved ? (
+                  <div style={{ textAlign: "center", padding: "48px 0" }}>
+                    <div style={{ color: "#607a8a", fontSize: 14, fontStyle: "italic", marginBottom: 16 }}>Complete and approve the project scope first.</div>
+                    <button className="rq-btn-primary" onClick={() => { setMarketView(false); setStep(0); }}>Go to Scope <ChevronRight size={13} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="rq-hint">AI will search G2, Gartner, and vendor websites to identify 5–8 relevant vendors and score them against your requirements.</p>
+
+                    {/* Shortlist summary */}
+                    {vendors.length > 0 && (
+                      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+                        <div className="rq-metric" style={{ minWidth: 100 }}>
+                          <div className="rq-metric-label">Vendors found</div>
+                          <div className="rq-metric-val">{vendors.length}</div>
+                        </div>
+                        <div className="rq-metric" style={{ minWidth: 100 }}>
+                          <div className="rq-metric-label">Shortlisted</div>
+                          <div className="rq-metric-val">{Object.values(vendorStatus).filter(s => s === "shortlisted").length}</div>
+                          <div className="rq-metric-sub">for RFP</div>
+                        </div>
+                        <div className="rq-metric" style={{ minWidth: 100 }}>
+                          <div className="rq-metric-label">Eliminated</div>
+                          <div className="rq-metric-val">{Object.values(vendorStatus).filter(s => s === "eliminated").length}</div>
+                          <div className="rq-metric-sub amber">ruled out</div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="rq-actions" style={{ marginBottom: 20, marginTop: 0 }}>
+                      <button className="rq-btn-primary" onClick={doMarketResearch} disabled={marketBusy}>
+                        {marketBusy ? <><Loader size={13} className="spin" /> Researching vendors…</> : vendors.length > 0 ? <><RefreshCw size={13} /> Re-run research</> : <>Search vendors</>}
+                      </button>
+                    </div>
+
+                    {marketErr && <div className="rq-error">{marketErr}</div>}
+
+                    {marketBusy && (
+                      <div className="rq-loading-center">
+                        <Loader size={20} className="spin" style={{ marginBottom: 10 }} /><br />
+                        Searching G2, Gartner, and vendor sites…
+                      </div>
+                    )}
+
+                    {!marketBusy && vendors.map(v => {
+                      const status = vendorStatus[v.name];
+                      const matchPct = v.requirementsTotal > 0 ? v.requirementsMatch / v.requirementsTotal : 0;
+                      return (
+                        <div key={v.name} className={`vendor-card rq-fade${status === "shortlisted" ? " shortlisted" : status === "eliminated" ? " eliminated" : ""}`}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div className="vendor-name">{v.name}</div>
+                              <div className="vendor-category">{v.category}</div>
+                            </div>
+                            {status === "shortlisted" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#5DCAA5", background: "rgba(93,202,165,0.12)", padding: "3px 8px", borderRadius: 3, flexShrink: 0 }}>Shortlisted</span>}
+                            {status === "eliminated" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#e07070", background: "rgba(184,80,80,0.1)", padding: "3px 8px", borderRadius: 3, flexShrink: 0 }}>Eliminated</span>}
+                          </div>
+
+                          <div className="vendor-meta">
+                            {v.g2Rating && v.g2Rating !== "N/A" && (
+                              <div className="vendor-rating">
+                                <span style={{ color: "#EF9F27" }}>★</span> {v.g2Rating}
+                              </div>
+                            )}
+                            {v.g2ReviewCount && v.g2ReviewCount !== "N/A" && (
+                              <div className="vendor-reviews">{v.g2ReviewCount}</div>
+                            )}
+                          </div>
+
+                          <div className="vendor-desc">{v.description}</div>
+
+                          <div className="vendor-match">
+                            <div className={`confidence-dot confidence-${v.matchConfidence || "low"}`} />
+                            <div className="vendor-match-bar">
+                              <div className={`vendor-match-fill ${v.matchConfidence === "medium" ? "medium" : v.matchConfidence === "low" ? "low" : ""}`} style={{ width: `${matchPct * 100}%` }} />
+                            </div>
+                            <div className="vendor-match-text">{v.requirementsMatch} of {v.requirementsTotal} requirements likely met</div>
+                          </div>
+
+                          <div className="vendor-actions">
+                            <button className={`vendor-btn vendor-btn-shortlist${status === "shortlisted" ? " active" : ""}`} onClick={() => toggleVendorStatus(v.name, "shortlisted")}>
+                              {status === "shortlisted" ? "✓ Shortlisted" : "Shortlist"}
+                            </button>
+                            <button className={`vendor-btn vendor-btn-eliminate${status === "eliminated" ? " active" : ""}`} onClick={() => toggleVendorStatus(v.name, "eliminated")}>
+                              {status === "eliminated" ? "✗ Eliminated" : "Eliminate"}
+                            </button>
+                            {v.g2Url && (
+                              <a href={v.g2Url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                                <button className="vendor-btn vendor-btn-g2">G2 ↗</button>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             )}
 
