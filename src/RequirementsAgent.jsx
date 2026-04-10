@@ -10,103 +10,165 @@ _link.rel = "stylesheet";
 _link.href = "https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap";
 document.head.appendChild(_link);
 
+// ─── Palette tokens ───────────────────────────────────────────────────────────
+// Sidebar/chrome: #1b2530 (navy-slate dark)
+// Surface:        #141d26 (darker bg)
+// Panel:          #1b2530 (card bg)
+// Topbar:         #1f2e3a
+// Teal accent:    #5DCAA5 (primary: active, success, req IDs)
+// Amber accent:   #EF9F27 (secondary: export, mc pills, q progress)
+// Body text:      #d8eaf2
+// Muted text:     #607a8a
+// Border:         rgba(255,255,255,0.07)
+
 const _style = document.createElement("style");
 _style.textContent = `
-  .rq-root{font-family:'Lora',Georgia,serif;background:#f7f5f2;min-height:100vh;color:#1a1714}
-  .rq-root *{box-sizing:border-box}
-  .rq-header{background:#1a1714;padding:28px 40px;display:flex;justify-content:space-between;align-items:center}
-  .rq-logo{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#c9b99a;margin-bottom:4px}
-  .rq-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#f7f5f2;margin:0}
-  .rq-session{font-family:'JetBrains Mono',monospace;font-size:10px;color:#5a5048;margin-top:4px}
-  .rq-export-btn{display:flex;align-items:center;gap:8px;background:#c9b99a;color:#1a1714;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;transition:background .15s;white-space:nowrap}
-  .rq-export-btn:hover{background:#e2d5be}
+  *{box-sizing:border-box}
+  .rq-root{font-family:'Lora',Georgia,serif;background:#141d26;min-height:100vh;color:#d8eaf2;display:flex;flex-direction:column}
+
+  /* ── Dashboard layout ── */
+  .rq-shell{display:flex;flex:1;min-height:0}
+  .rq-sidebar{width:200px;flex-shrink:0;background:#1b2530;border-right:1px solid rgba(255,255,255,0.07);display:flex;flex-direction:column;padding:0}
+  .rq-sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,0.07)}
+  .rq-sidebar-brand{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#5DCAA5;margin-bottom:2px}
+  .rq-sidebar-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#d8eaf2}
+  .rq-sidebar-session{font-family:'JetBrains Mono',monospace;font-size:9px;color:#3a5060;margin-top:4px}
+  .rq-nav{padding:12px 0;flex:1}
+  .rq-nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-family:'Syne',sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#607a8a;border-left:2px solid transparent;cursor:pointer;transition:all .15s}
+  .rq-nav-item:hover{color:#a8c8d8;background:rgba(255,255,255,0.03)}
+  .rq-nav-item.active{color:#5DCAA5;border-left-color:#5DCAA5;background:rgba(93,202,165,0.08)}
+  .rq-nav-item.done{color:#3d7a5a}
+  .rq-nav-item.done .rq-nav-num{background:#0f2a20;border-color:#1d4a36;color:#5DCAA5}
+  .rq-nav-num{width:18px;height:18px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+  .rq-sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,0.07)}
+
+  /* ── Main content area ── */
+  .rq-main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .rq-topbar{background:#1f2e3a;border-bottom:1px solid rgba(255,255,255,0.07);padding:14px 28px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+  .rq-topbar-left .rq-topbar-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#d8eaf2}
+  .rq-topbar-left .rq-topbar-sub{font-size:11px;color:#607a8a;margin-top:2px}
+  .rq-topbar-right{display:flex;align-items:center;gap:10px}
+  .rq-save-chip{font-family:'JetBrains Mono',monospace;font-size:10px;color:#5DCAA5;background:rgba(93,202,165,0.1);padding:4px 10px;border-radius:3px;display:flex;align-items:center;gap:5px}
+  .rq-export-btn{display:flex;align-items:center;gap:7px;background:#EF9F27;color:#1a0e00;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;transition:background .15s;white-space:nowrap}
+  .rq-export-btn:hover{background:#FAC775}
   .rq-export-btn:disabled{opacity:.4;cursor:not-allowed}
-  .rq-stepper{display:flex;border-bottom:1px solid #e3ddd6;background:#fff;padding:0 32px;overflow-x:auto}
-  .rq-step{display:flex;align-items:center;gap:8px;padding:16px 20px 16px 0;font-family:'Syne',sans-serif;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#b0a899;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
-  .rq-step.active{color:#1a1714;border-bottom-color:#c9b99a}
-  .rq-step.done{color:#5a8a6a}
-  .rq-step-num{width:20px;height:20px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
-  .rq-body{max-width:900px;margin:0 auto;padding:40px 24px}
-  .rq-section-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#b0a899;margin-bottom:10px}
-  .rq-textarea{width:100%;border:1.5px solid #e3ddd6;border-radius:6px;padding:14px 16px;font-family:'Lora',serif;font-size:15px;color:#1a1714;background:#faf9f7;resize:vertical;min-height:80px;outline:none;transition:border-color .15s;line-height:1.65}
-  .rq-textarea:focus{border-color:#c9b99a;background:#fff}
-  .rq-input{width:100%;border:1.5px solid #e3ddd6;border-radius:6px;padding:10px 14px;font-family:'Lora',serif;font-size:14px;color:#1a1714;background:#faf9f7;outline:none;transition:border-color .15s}
-  .rq-input:focus{border-color:#c9b99a;background:#fff}
-  .rq-btn-primary{display:inline-flex;align-items:center;gap:8px;background:#1a1714;color:#f7f5f2;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:12px 22px;border:none;border-radius:4px;cursor:pointer;transition:background .15s}
-  .rq-btn-primary:hover{background:#2e2925}
+  .rq-content{flex:1;padding:28px 32px;overflow-y:auto}
+
+  /* ── Metric cards ── */
+  .rq-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+  .rq-metric{background:#1b2530;border-radius:6px;padding:12px 14px;border:1px solid rgba(255,255,255,0.07)}
+  .rq-metric-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#607a8a;margin-bottom:4px}
+  .rq-metric-val{font-size:22px;font-weight:500;color:#d8eaf2}
+  .rq-metric-sub{font-size:10px;color:#5DCAA5;margin-top:2px}
+  .rq-metric-sub.amber{color:#EF9F27}
+
+  /* ── Section label ── */
+  .rq-section-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#607a8a;margin-bottom:10px}
+
+  /* ── Cards / panels ── */
+  .rq-card{background:#1b2530;border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:18px 20px;margin-bottom:10px}
+  .rq-card:hover{border-color:rgba(93,202,165,0.25)}
+
+  /* ── Form elements ── */
+  .rq-textarea{width:100%;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:12px 14px;font-family:'Lora',serif;font-size:14px;color:#d8eaf2;background:#141d26;resize:vertical;min-height:80px;outline:none;transition:border-color .15s;line-height:1.65}
+  .rq-textarea:focus{border-color:#5DCAA5}
+  .rq-input{width:100%;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:9px 12px;font-family:'Lora',serif;font-size:13px;color:#d8eaf2;background:#141d26;outline:none;transition:border-color .15s}
+  .rq-input:focus{border-color:#5DCAA5}
+
+  /* ── Buttons ── */
+  .rq-btn-primary{display:inline-flex;align-items:center;gap:7px;background:#5DCAA5;color:#04342C;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;transition:background .15s}
+  .rq-btn-primary:hover{background:#9FE1CB}
   .rq-btn-primary:disabled{opacity:.4;cursor:not-allowed}
-  .rq-btn-ghost{display:inline-flex;align-items:center;gap:6px;background:transparent;color:#6b5f52;font-family:'Syne',sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:8px 12px;border:1.5px solid #e3ddd6;border-radius:4px;cursor:pointer;transition:all .15s}
-  .rq-btn-ghost:hover{border-color:#c9b99a;color:#1a1714}
+  .rq-btn-ghost{display:inline-flex;align-items:center;gap:6px;background:transparent;color:#607a8a;font-family:'Syne',sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:8px 12px;border:1px solid rgba(255,255,255,0.12);border-radius:4px;cursor:pointer;transition:all .15s}
+  .rq-btn-ghost:hover{border-color:#5DCAA5;color:#5DCAA5}
   .rq-btn-ghost:disabled{opacity:.4;cursor:not-allowed}
-  .rq-btn-icon{display:inline-flex;align-items:center;justify-content:center;background:transparent;padding:6px 8px;border:1.5px solid #e3ddd6;border-radius:4px;cursor:pointer;transition:all .15s;color:#8a7e72}
-  .rq-btn-icon:hover{border-color:#c9b99a;color:#1a1714}
+  .rq-btn-icon{display:inline-flex;align-items:center;justify-content:center;background:transparent;padding:5px 7px;border:1px solid rgba(255,255,255,0.1);border-radius:4px;cursor:pointer;transition:all .15s;color:#607a8a}
+  .rq-btn-icon:hover{border-color:#5DCAA5;color:#5DCAA5}
   .rq-btn-icon:disabled{opacity:.35;cursor:not-allowed}
-  .rq-btn-del{color:#b85050;border-color:#e8c8c8}
-  .rq-btn-del:hover{background:#fff0f0;border-color:#d09090;color:#8a2020}
-  .rq-req-card{background:#fff;border:1.5px solid #e3ddd6;border-radius:8px;padding:18px 20px;margin-bottom:10px;transition:border-color .15s}
-  .rq-req-card:hover{border-color:#d0c4b4}
-  .rq-req-id{font-family:'JetBrains Mono',monospace;font-size:10px;color:#c9b99a;font-weight:500;margin-bottom:4px}
-  .rq-req-text{font-size:14px;line-height:1.55;color:#1a1714}
-  .rq-q-card{border:1.5px solid #e3ddd6;border-radius:6px;padding:16px 18px;margin-bottom:8px;background:#faf9f7}
-  .rq-badge{display:inline-block;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:3px;margin-bottom:7px}
-  .rq-badge-open{background:#edf0ff;color:#3a4fa0}
-  .rq-badge-mc{background:#edf7f2;color:#2a6a4a}
-  .rq-q-text{font-size:14px;color:#2e2925;line-height:1.5}
+  .rq-btn-del{color:#b85050;border-color:rgba(184,80,80,0.3)}
+  .rq-btn-del:hover{background:rgba(184,80,80,0.1);color:#e07070}
+
+  /* ── Req cards ── */
+  .rq-req-id{font-family:'JetBrains Mono',monospace;font-size:10px;color:#5DCAA5;font-weight:500;margin-bottom:4px;background:#0f2a20;display:inline-block;padding:1px 6px;border-radius:2px;border:1px solid #1d4a36}
+  .rq-req-text{font-size:13px;line-height:1.55;color:#a8c8d8;margin-top:4px}
+
+  /* ── Q cards ── */
+  .rq-q-card{border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:14px 16px;margin-bottom:8px;background:#141d26}
+  .rq-badge{display:inline-block;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:3px;margin-bottom:6px}
+  .rq-badge-open{background:#0f2a20;color:#5DCAA5;border:1px solid #1d4a36}
+  .rq-badge-mc{background:#2a1a08;color:#EF9F27;border:1px solid #4a3010}
+  .rq-q-text{font-size:13px;color:#a8c8d8;line-height:1.5}
   .rq-mc-opts{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
-  .rq-mc-opt{font-family:'JetBrains Mono',monospace;font-size:11px;background:#fff;border:1px solid #d4ccc4;border-radius:3px;padding:3px 10px;color:#5a5048}
-  .rq-scope-box{font-size:14px;line-height:1.75;color:#2e2925;background:#faf9f7;border:1px solid #e3ddd6;border-radius:8px;padding:18px 22px;white-space:pre-wrap;font-family:'Lora',serif}
-  .rq-progress{display:flex;align-items:center;gap:10px;margin-bottom:36px}
-  .rq-pb-wrap{flex:1;height:3px;background:#e3ddd6;border-radius:2px;overflow:hidden}
-  .rq-pb{height:100%;background:#c9b99a;border-radius:2px;transition:width .5s ease}
-  .rq-pb-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:#b0a899;white-space:nowrap}
-  .rq-hint{font-size:13px;color:#8a7e72;line-height:1.6;font-style:italic;margin:0 0 16px}
-  .rq-error{background:#fff4f0;border:1px solid #f0c4b4;border-radius:6px;padding:10px 14px;font-size:13px;color:#b85030;margin-top:10px;font-family:'Lora',serif}
-  .rq-divider{border:none;border-top:1px solid #e3ddd6;margin:28px 0}
+  .rq-mc-opt{font-family:'JetBrains Mono',monospace;font-size:11px;background:#1b2530;border:1px solid rgba(239,159,39,0.3);border-radius:3px;padding:3px 9px;color:#EF9F27}
+
+  /* ── Scope ── */
+  .rq-scope-box{font-size:14px;line-height:1.75;color:#a8c8d8;background:#141d26;border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:16px 20px;white-space:pre-wrap;font-family:'Lora',serif}
+  .rq-scope-approved{background:rgba(93,202,165,0.08);border:1px solid rgba(93,202,165,0.3);border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5DCAA5}
+  .rq-flag-card{background:rgba(239,159,39,0.05);border:1px solid rgba(239,159,39,0.3);border-radius:8px;padding:14px 18px;margin-bottom:12px}
+  .rq-flag-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#EF9F27;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .rq-flag-text{font-size:13px;color:#c8a870;line-height:1.6;margin-bottom:10px}
+
+  /* ── 5Ws ── */
+  .rq-5w-card{background:#1b2530;border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:18px 20px;margin-bottom:12px}
+  .rq-5w-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#5DCAA5;margin-bottom:4px}
+  .rq-5w-question{font-size:13px;font-weight:500;color:#d8eaf2;margin-bottom:10px;font-family:'Syne',sans-serif}
+
+  /* ── Save bar ── */
+  .sv-bar{display:flex;align-items:center;justify-content:space-between;background:#1b2530;border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:8px 14px;margin-bottom:20px;gap:12px}
+  .sv-status{font-family:'JetBrains Mono',monospace;font-size:10px;color:#607a8a;display:flex;align-items:center;gap:6px}
+  .sv-status.saved{color:#5DCAA5}
+  .sv-status.saving{color:#EF9F27}
+  .sv-status.error{color:#e07070}
+
+  /* ── Progress ── */
+  .rq-progress{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+  .rq-pb-wrap{flex:1;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden}
+  .rq-pb{height:100%;background:#5DCAA5;border-radius:2px;transition:width .5s ease}
+  .rq-pb-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:#3a5060;white-space:nowrap}
+
+  /* ── Misc ── */
+  .rq-hint{font-size:13px;color:#607a8a;line-height:1.6;font-style:italic;margin:0 0 16px}
+  .rq-error{background:rgba(184,80,80,0.1);border:1px solid rgba(184,80,80,0.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#e07070;margin-top:10px}
+  .rq-divider{border:none;border-top:1px solid rgba(255,255,255,0.07);margin:24px 0}
   .rq-row{display:flex;gap:8px;align-items:center}
-  .rq-actions{display:flex;gap:8px;margin-top:16px;align-items:center;flex-wrap:wrap}
-  .rq-req-group-label{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#2e2925;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e3ddd6}
-  .rq-loading-center{padding:36px 0;text-align:center;color:#8a7e72;font-style:italic;font-family:'Lora',serif}
-  .rq-5w-card{background:#fff;border:1.5px solid #e3ddd6;border-radius:8px;padding:20px 22px;margin-bottom:14px}
-  .rq-5w-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#c9b99a;margin-bottom:4px}
-  .rq-5w-question{font-size:14px;font-weight:500;color:#1a1714;margin-bottom:10px;font-family:'Syne',sans-serif}
-  .rq-flag-card{background:#fffbf0;border:1.5px solid #e8d8a0;border-radius:8px;padding:16px 20px;margin-bottom:14px}
-  .rq-flag-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#a07820;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-  .rq-flag-text{font-size:14px;color:#4a3800;line-height:1.6;margin-bottom:12px}
-  .rq-scope-approved{background:#f0faf4;border:1.5px solid #a0d8b4;border-radius:8px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2a7a4a}
-  .sv-bar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e3ddd6;border-radius:8px;padding:10px 16px;margin-bottom:20px;gap:12px}
-  .sv-status{font-family:'JetBrains Mono',monospace;font-size:11px;color:#8a7e72;display:flex;align-items:center;gap:6px}
-  .sv-status.saved{color:#2a7a4a}
-  .sv-status.saving{color:#a07820}
-  .sv-status.error{color:#b85030}
-  .sessions-panel{background:#fff;border:1px solid #e3ddd6;border-radius:8px;overflow:hidden;margin-bottom:24px}
-  .sessions-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3ddd6;background:#faf9f7}
-  .sessions-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#b0a899}
-  .session-row{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #f0ede8;cursor:pointer;transition:background .15s;gap:12px}
+  .rq-actions{display:flex;gap:8px;margin-top:14px;align-items:center;flex-wrap:wrap}
+  .rq-req-group-label{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#a8c8d8;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.07)}
+  .rq-loading-center{padding:36px 0;text-align:center;color:#607a8a;font-style:italic;font-family:'Lora',serif}
+
+  /* ── Sessions ── */
+  .sessions-panel{background:#1b2530;border:1px solid rgba(255,255,255,0.07);border-radius:8px;overflow:hidden;margin-bottom:24px}
+  .sessions-header{padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.07);background:#1f2e3a}
+  .sessions-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#607a8a}
+  .session-row{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background .15s;gap:12px}
   .session-row:last-child{border-bottom:none}
-  .session-row:hover{background:#faf9f7}
-  .session-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:#1a1714;margin-bottom:2px}
-  .session-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:#b0a899}
+  .session-row:hover{background:rgba(255,255,255,0.03)}
+  .session-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:#d8eaf2;margin-bottom:2px}
+  .session-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:#3a5060}
   .session-status{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px}
-  .session-status.draft{background:#fdf0ea;color:#a05020}
-  .session-status.complete{background:#edf7f2;color:#2a6a4a}
-  .tl-group-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f0ede8;border-radius:6px;margin-bottom:6px;cursor:pointer;user-select:none;border:1px solid #e3ddd6}
-  .tl-group-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#6b5f52}
-  .tl-group-pre{color:#2e5984}
-  .tl-group-rfp{color:#3a6a52}
-  .tl-group-post{color:#a05828}
-  .tl-act-row{display:grid;gap:6px;align-items:center;margin-bottom:6px;padding:8px 10px;background:#fff;border:1px solid #e3ddd6;border-radius:6px;transition:border-color .15s}
-  .tl-act-row:hover{border-color:#d0c4b4}
-  .tl-act-row.is-child{margin-left:24px;background:#faf9f7;border-left:3px solid #c9b99a}
-  .tl-act-row.is-parent{border-left:3px solid #1a1714}
+  .session-status.draft{background:rgba(239,159,39,0.12);color:#EF9F27}
+  .session-status.complete{background:rgba(93,202,165,0.12);color:#5DCAA5}
+
+  /* ── Timeline ── */
+  .tl-group-header{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#1f2e3a;border-radius:6px;margin-bottom:6px;cursor:pointer;user-select:none;border:1px solid rgba(255,255,255,0.07)}
+  .tl-group-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+  .tl-group-pre{color:#5DCAA5}
+  .tl-group-rfp{color:#EF9F27}
+  .tl-group-post{color:#a8c8d8}
+  .tl-act-row{display:grid;gap:6px;align-items:center;margin-bottom:5px;padding:7px 10px;background:#1b2530;border:1px solid rgba(255,255,255,0.07);border-radius:6px;transition:border-color .15s}
+  .tl-act-row:hover{border-color:rgba(93,202,165,0.3)}
+  .tl-act-row.is-child{margin-left:22px;background:#141d26;border-left:2px solid rgba(239,159,39,0.4)}
+  .tl-act-row.is-parent{border-left:2px solid rgba(93,202,165,0.4)}
   .tl-act-row.dragging{opacity:.5}
-  .tl-act-row.drag-over{border-color:#c9b99a;border-style:dashed}
-  .tl-cell-input{border:1px solid #e3ddd6;border-radius:4px;padding:5px 7px;font-family:'Lora',serif;font-size:12px;color:#1a1714;background:#faf9f7;outline:none;width:100%}
-  .tl-cell-input:focus{border-color:#c9b99a}
-  .tl-col-hdr{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#b0a899}
-  .gantt-wrap{overflow-x:auto;margin-top:24px}
-  .gantt-container{min-width:640px;background:#fff;border:1px solid #e3ddd6;border-radius:8px;padding:20px}
-  .gantt-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#b0a899;margin-bottom:16px}
-  .gantt-group-bar{height:6px;border-radius:3px;margin-bottom:4px}
+  .tl-act-row.drag-over{border-color:#5DCAA5;border-style:dashed}
+  .tl-cell-input{border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:5px 7px;font-family:'Lora',serif;font-size:12px;color:#d8eaf2;background:#141d26;outline:none;width:100%}
+  .tl-cell-input:focus{border-color:#5DCAA5}
+  .tl-col-hdr{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#3a5060}
+
+  /* ── Gantt ── */
+  .gantt-wrap{overflow-x:auto;margin-top:20px}
+  .gantt-container{min-width:640px;background:#1b2530;border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:18px}
+  .gantt-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#3a5060;margin-bottom:14px}
+
   @keyframes spin{to{transform:rotate(360deg)}}
   .spin{animation:spin .8s linear infinite;display:inline-block}
   .rq-fade{animation:fadeUp .3s ease both}
@@ -265,7 +327,7 @@ function GanttChart({ activities }) {
                   </div>
                   {gas.map(a => (
                     <div key={a.id} style={{ height: BAR_H, marginBottom: 4, display: "flex", alignItems: "center", paddingLeft: a.parentId ? 14 : 0 }}>
-                      <span style={{ fontFamily: "'Lora',serif", fontSize: a.parentId ? 10 : 11, color: a.parentId ? "#6b5f52" : "#2e2925", lineHeight: 1.2, paddingRight: 8, fontStyle: a.parentId ? "italic" : "normal", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontFamily: "'Lora',serif", fontSize: a.parentId ? 10 : 11, color: a.parentId ? "#607a8a" : "#a8c8d8", lineHeight: 1.2, paddingRight: 8, fontStyle: a.parentId ? "italic" : "normal", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {a.parentId ? "↳ " : ""}{a.name}
                       </span>
                     </div>
@@ -278,10 +340,10 @@ function GanttChart({ activities }) {
           {/* Chart area */}
           <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
             {/* Month markers */}
-            <div style={{ height: 28, position: "relative", marginBottom: 4, borderBottom: "1px solid #e3ddd6" }}>
+            <div style={{ height: 28, position: "relative", marginBottom: 4, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               {markers.map(m => (
-                <div key={m.ds} style={{ position: "absolute", left: `${m.pct}%`, top: 0, height: "100%", borderLeft: "1px solid #e3ddd6" }}>
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "#b0a899", paddingLeft: 3, whiteSpace: "nowrap" }}>{m.label}</span>
+                <div key={m.ds} style={{ position: "absolute", left: `${m.pct}%`, top: 0, height: "100%", borderLeft: "1px solid rgba(255,255,255,0.07)" }}>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "#3a5060", paddingLeft: 3, whiteSpace: "nowrap" }}>{m.label}</span>
                 </div>
               ))}
             </div>
@@ -334,12 +396,12 @@ function GanttChart({ activities }) {
           {GROUPS.map(g => (
             <div key={g} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <div style={{ width: 14, height: 8, background: GROUP_COLORS[g], borderRadius: 2 }} />
-              <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, color: "#8a7e72" }}>{g}</span>
+              <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, color: "#607a8a" }}>{g}</span>
             </div>
           ))}
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 14, height: 8, border: "1.5px solid #2e5984", borderRadius: 2 }} />
-            <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, color: "#8a7e72" }}>Sub-activity</span>
+            <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, color: "#607a8a" }}>Sub-activity</span>
           </div>
         </div>
       </div>
@@ -766,334 +828,404 @@ export default function RequirementsAgent() {
   if (view === "sessions") {
     return (
       <div className="rq-root">
-        <div className="rq-header">
-          <div><div className="rq-logo">Requirements Discovery</div><div className="rq-title">Procurement Agent</div></div>
-          <button className="rq-export-btn" onClick={() => setView("agent")}><Plus size={15} /> New Session</button>
-        </div>
-        <div className="rq-body">
-          <div className="rq-section-label" style={{ marginBottom: 16 }}>Sessions</div>
-          {sessionsLoading && <div className="rq-loading-center"><Loader size={18} className="spin" /></div>}
-          {!sessionsLoading && sessionsList.length === 0 && (
-            <div style={{ textAlign: "center", padding: "48px 0", color: "#8a7e72", fontStyle: "italic", fontSize: 14 }}>No sessions yet. Start a new one.</div>
-          )}
-          {!sessionsLoading && sessionsList.length > 0 && (
-            <div className="sessions-panel">
-              <div className="sessions-header"><div className="sessions-title">{sessionsList.length} session{sessionsList.length !== 1 ? "s" : ""}</div></div>
-              {sessionsList.map(s => (
-                <div className="session-row" key={s.id} onClick={() => doLoadSession(s.id)}>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="session-name">{s.project_title || "Untitled"}</div>
-                    <div className="session-meta">{s.id} · {new Date(s.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                    <span className={`session-status ${s.status}`}>{s.status}</span>
-                    <button className="rq-btn-icon rq-btn-del" onClick={(e) => doDeleteSession(s.id, e)} style={{ padding: "5px 7px" }}><Trash2 size={12} /></button>
-                  </div>
-                </div>
-              ))}
+        <div className="rq-shell">
+          <div className="rq-sidebar">
+            <div className="rq-sidebar-logo">
+              <div className="rq-sidebar-brand">Procurement</div>
+              <div className="rq-sidebar-title">Agent</div>
             </div>
-          )}
+            <div style={{ flex: 1 }} />
+            <div className="rq-sidebar-footer">
+              <button className="rq-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setView("agent")}>
+                <Plus size={13} /> New Session
+              </button>
+            </div>
+          </div>
+          <div className="rq-main">
+            <div className="rq-topbar">
+              <div className="rq-topbar-left">
+                <div className="rq-topbar-title">Sessions</div>
+                <div className="rq-topbar-sub">Select a session to resume or start a new one</div>
+              </div>
+            </div>
+            <div className="rq-content">
+              {sessionsLoading && <div className="rq-loading-center"><Loader size={18} className="spin" /></div>}
+              {!sessionsLoading && sessionsList.length === 0 && (
+                <div style={{ textAlign: "center", padding: "64px 0", color: "#3a5060", fontSize: 14, fontStyle: "italic" }}>No sessions yet. Start a new one.</div>
+              )}
+              {!sessionsLoading && sessionsList.length > 0 && (
+                <div className="sessions-panel">
+                  <div className="sessions-header"><div className="sessions-title">{sessionsList.length} session{sessionsList.length !== 1 ? "s" : ""}</div></div>
+                  {sessionsList.map(s => (
+                    <div className="session-row" key={s.id} onClick={() => doLoadSession(s.id)}>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="session-name">{s.project_title || "Untitled"}</div>
+                        <div className="session-meta">{s.id} · {new Date(s.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                        <span className={`session-status ${s.status}`}>{s.status}</span>
+                        <button className="rq-btn-icon rq-btn-del" onClick={(e) => doDeleteSession(s.id, e)} style={{ padding: "5px 7px" }}><Trash2 size={12} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   // ── Agent view ──
+  const stepLabels = ["Scope", "Requirements", "Questions", "Review"];
+  const answeredReqs = Object.keys(questions).length;
+  const openQ = Object.values(questions).flat().filter(q => q.type === "open_ended").length;
+  const mcQ = Object.values(questions).flat().filter(q => q.type === "multiple_choice").length;
+
   return (
     <div className="rq-root">
-      <div className="rq-header">
-        <div><div className="rq-logo">Requirements Discovery</div><div className="rq-title">Procurement Agent</div><div className="rq-session">{sessionId}</div></div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button className="rq-btn-ghost" style={{ color: "#c9b99a", borderColor: "#3a3530" }} onClick={() => setView("sessions")}><ArrowLeft size={13} /> Sessions</button>
-          <button className="rq-export-btn" onClick={doExport} disabled={step < 3 || exportBusy}>{exportBusy ? <Loader size={15} className="spin" /> : <FileText size={15} />} Export .docx</button>
-        </div>
-      </div>
-
-      <div className="rq-stepper">
-        {STEPS.map((label, i) => (
-          <div key={label} className={`rq-step ${i === step ? "active" : i < step ? "done" : ""}`}>
-            <div className="rq-step-num">{i < step ? <CheckCircle size={12} /> : i + 1}</div>{label}
+      <div className="rq-shell">
+        {/* ── Sidebar ── */}
+        <div className="rq-sidebar">
+          <div className="rq-sidebar-logo">
+            <div className="rq-sidebar-brand">Procurement</div>
+            <div className="rq-sidebar-title">Agent</div>
+            <div className="rq-sidebar-session">{sessionId}</div>
           </div>
-        ))}
-      </div>
-
-      <div className="rq-body">
-        <div className="sv-bar">
-          <div className={`sv-status ${saveStatus === "idle" ? "" : saveStatus}`}>
-            {saveStatus === "saving" && <><Loader size={12} className="spin" /> Saving…</>}
-            {saveStatus === "saved" && <><CheckCircle size={12} /> Saved</>}
-            {saveStatus === "error" && <>Save failed</>}
-            {saveStatus === "idle" && lastSaved && <><Clock size={12} /> Last saved {lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</>}
-            {saveStatus === "idle" && !lastSaved && <><Clock size={12} /> Not yet saved</>}
-          </div>
-          <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={12} /> Save Draft</button>
-        </div>
-
-        <div className="rq-progress">
-          <div className="rq-pb-wrap"><div className="rq-pb" style={{ width: `${pct}%` }} /></div>
-          <div className="rq-pb-label">Step {step + 1} / {STEPS.length}</div>
-        </div>
-
-        {/* ── Step 0: Scope ── */}
-        {step === 0 && (
-          <div className="rq-fade">
-            <div className="rq-section-label" style={{ marginBottom: 6 }}>Project Title</div>
-            <input className="rq-input" style={{ marginBottom: 24 }} placeholder="e.g. Enterprise Tool Tracking System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
-            <div className="rq-section-label" style={{ marginBottom: 16 }}>Project Intake</div>
-            {FIVE_WS.map(w => (
-              <div className="rq-5w-card" key={w.key}>
-                <div className="rq-5w-label">{w.label}</div>
-                <div className="rq-5w-question">{w.question}</div>
-                <textarea key={`ta-${w.key}`} name={w.key} className="rq-textarea" placeholder={w.placeholder} value={answers[w.key]} onChange={e => { const k = w.key, v = e.target.value; setAnswers(p => ({ ...p, [k]: v })); }} rows={2} />
+          <div className="rq-nav">
+            {stepLabels.map((label, i) => (
+              <div key={label} className={`rq-nav-item ${i === step ? "active" : i < step ? "done" : ""}`} onClick={() => i <= step && setStep(i)}>
+                <div className="rq-nav-num">{i < step ? <CheckCircle size={11} /> : i + 1}</div>
+                {label}
               </div>
             ))}
-            {scopeErr && <div className="rq-error">{scopeErr}</div>}
-            {formalScope && (
-              <div style={{ marginTop: 24 }} className="rq-fade">
-                <div className="rq-section-label">Generated Scope</div>
-                {editingScope ? (
-                  <>
-                    <textarea className="rq-textarea" value={formalScope} onChange={e => setFormalScope(e.target.value)} rows={5} style={{ marginBottom: 10 }} />
-                    <div className="rq-actions"><button className="rq-btn-ghost" onClick={async () => { setEditingScope(false); await doEvaluateScope(formalScope); }}><Check size={12} /> Done editing</button></div>
-                  </>
-                ) : (
-                  <>
-                    <div className="rq-scope-box">{formalScope}</div>
-                    <div className="rq-actions">
-                      <button className="rq-btn-ghost" onClick={() => setEditingScope(true)}><Pencil size={12} /> Edit</button>
-                      <button className="rq-btn-ghost" onClick={doGenerateScope} disabled={scopeBusy}><RefreshCw size={12} /> Regenerate</button>
-                    </div>
-                  </>
-                )}
-                {scopeFlags.length > 0 && !editingScope && (
+          </div>
+          <div className="rq-sidebar-footer">
+            <button className="rq-btn-ghost" style={{ width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => setView("sessions")}>
+              <ArrowLeft size={12} /> Sessions
+            </button>
+          </div>
+        </div>
+
+        {/* ── Main ── */}
+        <div className="rq-main">
+          <div className="rq-topbar">
+            <div className="rq-topbar-left">
+              <div className="rq-topbar-title">{stepLabels[step]}</div>
+              <div className="rq-topbar-sub">{projectTitle || "Untitled project"} · Step {step + 1} of 4</div>
+            </div>
+            <div className="rq-topbar-right">
+              <div className={`sv-status ${saveStatus === "idle" ? "" : saveStatus}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                {saveStatus === "saving" && <><Loader size={11} className="spin" /> Saving…</>}
+                {saveStatus === "saved" && <span className="rq-save-chip"><CheckCircle size={11} /> Saved</span>}
+                {saveStatus === "error" && <span style={{ color: "#e07070" }}>Save failed</span>}
+                {saveStatus === "idle" && lastSaved && <span style={{ color: "#3a5060" }}><Clock size={11} style={{ display: "inline", marginRight: 4 }} />{lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
+              </div>
+              <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
+              <button className="rq-export-btn" onClick={doExport} disabled={step < 3 || exportBusy}>
+                {exportBusy ? <Loader size={14} className="spin" /> : <FileText size={14} />} Export .docx
+              </button>
+            </div>
+          </div>
+
+          <div className="rq-content">
+            {/* Metric cards — shown from step 1 onwards */}
+            {step >= 1 && (
+              <div className="rq-metrics">
+                <div className="rq-metric">
+                  <div className="rq-metric-label">Requirements</div>
+                  <div className="rq-metric-val">{requirements.length}</div>
+                  <div className="rq-metric-sub">binary</div>
+                </div>
+                <div className="rq-metric">
+                  <div className="rq-metric-label">Questions</div>
+                  <div className="rq-metric-val">{openQ + mcQ}</div>
+                  <div className="rq-metric-sub">{answeredReqs > 0 ? `${answeredReqs} reqs covered` : "not yet generated"}</div>
+                </div>
+                <div className="rq-metric">
+                  <div className="rq-metric-label">Open ended</div>
+                  <div className="rq-metric-val">{openQ}</div>
+                  <div className="rq-metric-sub amber">of {openQ + mcQ || "—"}</div>
+                </div>
+                <div className="rq-metric">
+                  <div className="rq-metric-label">Multiple choice</div>
+                  <div className="rq-metric-val">{mcQ}</div>
+                  <div className="rq-metric-sub amber">of {openQ + mcQ || "—"}</div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Step 0: Scope ── */}
+            {step === 0 && (
+              <div className="rq-fade">
+                <div className="rq-section-label" style={{ marginBottom: 6 }}>Project title</div>
+                <input className="rq-input" style={{ marginBottom: 22 }} placeholder="e.g. Enterprise Tool Tracking System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
+                <div className="rq-section-label" style={{ marginBottom: 14 }}>Project intake</div>
+                {FIVE_WS.map(w => (
+                  <div className="rq-5w-card" key={w.key}>
+                    <div className="rq-5w-label">{w.label}</div>
+                    <div className="rq-5w-question">{w.question}</div>
+                    <textarea key={`ta-${w.key}`} name={w.key} className="rq-textarea" placeholder={w.placeholder} value={answers[w.key]} onChange={e => { const k = w.key, v = e.target.value; setAnswers(p => ({ ...p, [k]: v })); }} rows={2} />
+                  </div>
+                ))}
+                {scopeErr && <div className="rq-error">{scopeErr}</div>}
+                {formalScope && (
                   <div style={{ marginTop: 20 }} className="rq-fade">
-                    <div className="rq-section-label" style={{ marginBottom: 12 }}>Scope Review — Action Required</div>
-                    {scopeFlags.map(flag => {
-                      const val = flagResponses[flag.criterion] || "";
-                      const skipped = isSkipped(val);
+                    <div className="rq-section-label">Generated scope</div>
+                    {editingScope ? (
+                      <>
+                        <textarea className="rq-textarea" value={formalScope} onChange={e => setFormalScope(e.target.value)} rows={5} style={{ marginBottom: 10 }} />
+                        <div className="rq-actions"><button className="rq-btn-ghost" onClick={async () => { setEditingScope(false); await doEvaluateScope(formalScope); }}><Check size={12} /> Done editing</button></div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="rq-scope-box">{formalScope}</div>
+                        <div className="rq-actions">
+                          <button className="rq-btn-ghost" onClick={() => setEditingScope(true)}><Pencil size={12} /> Edit</button>
+                          <button className="rq-btn-ghost" onClick={doGenerateScope} disabled={scopeBusy}><RefreshCw size={12} /> Regenerate</button>
+                        </div>
+                      </>
+                    )}
+                    {scopeFlags.length > 0 && !editingScope && (
+                      <div style={{ marginTop: 18 }} className="rq-fade">
+                        <div className="rq-section-label" style={{ marginBottom: 10 }}>Scope review — action required</div>
+                        {scopeFlags.map(flag => {
+                          const val = flagResponses[flag.criterion] || "";
+                          const skipped = isSkipped(val);
+                          return (
+                            <div className="rq-flag-card" key={flag.criterion} style={{ opacity: skipped ? 0.5 : 1 }}>
+                              <div className="rq-flag-title"><AlertTriangle size={13} /> {flag.criterion}{skipped && <span style={{ marginLeft: 8, fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#EF9F27", background: "rgba(239,159,39,0.15)", padding: "2px 7px", borderRadius: 3 }}>SKIPPED</span>}</div>
+                              {!skipped && <div className="rq-flag-text">{flag.prompt}</div>}
+                              <textarea className="rq-textarea" placeholder={`Your response… (type "skip" to dismiss)`} value={val} onChange={e => setFlagResponses(p => ({ ...p, [flag.criterion]: e.target.value }))} rows={skipped ? 1 : 2} style={{ opacity: skipped ? 0.6 : 1 }} />
+                            </div>
+                          );
+                        })}
+                        <div className="rq-actions">
+                          <button className="rq-btn-primary" onClick={doRefineScope} disabled={scopeBusy || !allFlagResponsesFilled}>
+                            {scopeBusy ? <><Loader size={13} className="spin" /> Refining…</> : <>Refine scope <ChevronRight size={13} /></>}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {scopeApproved && !editingScope && (
+                      <div style={{ marginTop: 14 }} className="rq-fade">
+                        <div className="rq-scope-approved"><CheckCircle size={15} /> Scope approved — all criteria met</div>
+                        <div className="rq-actions"><button className="rq-btn-primary" onClick={() => { setStep(1); doGenerateReqs(); }}>Generate requirements <ChevronRight size={13} /></button></div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!formalScope && (
+                  <div className="rq-actions" style={{ marginTop: 8 }}>
+                    <button className="rq-btn-primary" onClick={doGenerateScope} disabled={!allAnswered || scopeBusy}>
+                      {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Step 1: Requirements ── */}
+            {step === 1 && (
+              <div className="rq-fade">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+                  <p className="rq-hint" style={{ marginBottom: 0 }}>Edit, delete, or add your own below.</p>
+                  <button className="rq-btn-ghost" onClick={doGenerateReqs} disabled={reqsBusy}>{reqsBusy ? <Loader size={11} className="spin" /> : <RefreshCw size={11} />} Regenerate</button>
+                </div>
+                {reqsBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating requirements…</div>}
+                {reqsErr && <div className="rq-error">{reqsErr}</div>}
+                {!reqsBusy && requirements.map(req => (
+                  <div className="rq-card rq-fade" key={req.id}>
+                    <div className="rq-req-id">{req.id}</div>
+                    {editId === req.id ? (
+                      <>
+                        <input className="rq-input" value={editText} onChange={e => setEditText(e.target.value)} style={{ marginTop: 8, marginBottom: 10 }} />
+                        <div className="rq-row"><button className="rq-btn-ghost" onClick={() => saveEdit(req.id)}><Check size={11} /> Save</button><button className="rq-btn-ghost" onClick={() => setEditId(null)}><X size={11} /> Cancel</button></div>
+                      </>
+                    ) : (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                        <div className="rq-req-text">{req.text}</div>
+                        <div className="rq-row" style={{ flexShrink: 0 }}>
+                          <button className="rq-btn-icon" onClick={() => { setEditId(req.id); setEditText(req.text); }}><Pencil size={12} /></button>
+                          <button className="rq-btn-icon rq-btn-del" onClick={() => deleteReq(req.id)}><Trash2 size={12} /></button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {!reqsBusy && (
+                  <div className="rq-row" style={{ marginTop: 8 }}>
+                    <input className="rq-input" placeholder="Add your own requirement…" value={newReq} onChange={e => setNewReq(e.target.value)} onKeyDown={e => e.key === "Enter" && addReq()} />
+                    <button className="rq-btn-ghost" onClick={addReq} disabled={!newReq.trim()} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Add</button>
+                  </div>
+                )}
+                {!reqsBusy && requirements.length > 0 && (
+                  <div className="rq-actions" style={{ marginTop: 22 }}>
+                    <button className="rq-btn-ghost" onClick={() => setStep(0)}>← Back</button>
+                    <button className="rq-btn-primary" onClick={() => setStep(2)}>Continue to questions <ChevronRight size={13} /></button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Step 2: Questions ── */}
+            {step === 2 && (
+              <div className="rq-fade">
+                <p className="rq-hint">The agent will generate 2–3 follow-up questions per requirement — a mix of open-ended and multiple choice.</p>
+                {qErr && <div className="rq-error">{qErr}</div>}
+                {qBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating questions for {requirements.length} requirement{requirements.length !== 1 ? "s" : ""}…</div>}
+                {!qBusy && Object.keys(questions).length === 0 && (
+                  <div className="rq-actions">
+                    <button className="rq-btn-ghost" onClick={() => setStep(1)}>← Back</button>
+                    <button className="rq-btn-primary" onClick={doGenerateQuestions}>Generate questions <ChevronRight size={13} /></button>
+                  </div>
+                )}
+                {!qBusy && Object.keys(questions).length > 0 && (
+                  <>
+                    {requirements.map(req => {
+                      const qs = questions[req.id] || [];
                       return (
-                        <div className="rq-flag-card" key={flag.criterion} style={{ opacity: skipped ? 0.5 : 1 }}>
-                          <div className="rq-flag-title"><AlertTriangle size={13} /> {flag.criterion}{skipped && <span style={{ marginLeft: 8, fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#a07820", background: "#f0e0a0", padding: "2px 7px", borderRadius: 3 }}>SKIPPED</span>}</div>
-                          {!skipped && <div className="rq-flag-text">{flag.prompt}</div>}
-                          <textarea className="rq-textarea" placeholder={`Your response… (type "skip" to dismiss)`} value={val} onChange={e => setFlagResponses(p => ({ ...p, [flag.criterion]: e.target.value }))} rows={skipped ? 1 : 2} style={{ opacity: skipped ? 0.6 : 1 }} />
+                        <div key={req.id} style={{ marginBottom: 22 }}>
+                          <div className="rq-req-group-label">{req.id} — {req.text}</div>
+                          {qs.map((q, i) => (
+                            <div className="rq-q-card" key={i}>
+                              <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open ended" : "Multiple choice"}</div>
+                              <div className="rq-q-text">{q.text}</div>
+                              {q.type === "multiple_choice" && q.options?.length && (
+                                <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       );
                     })}
                     <div className="rq-actions">
-                      <button className="rq-btn-primary" onClick={doRefineScope} disabled={scopeBusy || !allFlagResponsesFilled}>
-                        {scopeBusy ? <><Loader size={13} className="spin" /> Refining…</> : <>Refine Scope <ChevronRight size={13} /></>}
-                      </button>
+                      <button className="rq-btn-ghost" onClick={doGenerateQuestions} disabled={qBusy}><RefreshCw size={11} /> Regenerate</button>
+                      <button className="rq-btn-primary" onClick={() => setStep(3)}>Continue to review <ChevronRight size={13} /></button>
                     </div>
-                  </div>
-                )}
-                {scopeApproved && !editingScope && (
-                  <div style={{ marginTop: 16 }} className="rq-fade">
-                    <div className="rq-scope-approved"><CheckCircle size={16} /> Scope approved — all criteria met</div>
-                    <div className="rq-actions"><button className="rq-btn-primary" onClick={() => { setStep(1); doGenerateReqs(); }}>Generate Requirements <ChevronRight size={14} /></button></div>
-                  </div>
-                )}
-              </div>
-            )}
-            {!formalScope && (
-              <div className="rq-actions" style={{ marginTop: 8 }}>
-                <button className="rq-btn-primary" onClick={doGenerateScope} disabled={!allAnswered || scopeBusy}>
-                  {scopeBusy ? <><Loader size={14} className="spin" /> Generating scope…</> : <>Generate Scope <ChevronRight size={14} /></>}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Step 1: Requirements ── */}
-        {step === 1 && (
-          <div className="rq-fade">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-              <div><div className="rq-section-label">Functional Requirements</div><p className="rq-hint" style={{ marginBottom: 0 }}>Edit, delete, or add your own below.</p></div>
-              <button className="rq-btn-ghost" onClick={doGenerateReqs} disabled={reqsBusy}>{reqsBusy ? <Loader size={12} className="spin" /> : <RefreshCw size={12} />} Regenerate</button>
-            </div>
-            {reqsBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating requirements…</div>}
-            {reqsErr && <div className="rq-error">{reqsErr}</div>}
-            {!reqsBusy && requirements.map(req => (
-              <div className="rq-req-card rq-fade" key={req.id}>
-                <div className="rq-req-id">{req.id}</div>
-                {editId === req.id ? (
-                  <>
-                    <input className="rq-input" value={editText} onChange={e => setEditText(e.target.value)} style={{ marginBottom: 10 }} />
-                    <div className="rq-row"><button className="rq-btn-ghost" onClick={() => saveEdit(req.id)}><Check size={12} /> Save</button><button className="rq-btn-ghost" onClick={() => setEditId(null)}><X size={12} /> Cancel</button></div>
                   </>
-                ) : (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                    <div className="rq-req-text">{req.text}</div>
-                    <div className="rq-row" style={{ flexShrink: 0 }}>
-                      <button className="rq-btn-icon" onClick={() => { setEditId(req.id); setEditText(req.text); }}><Pencil size={13} /></button>
-                      <button className="rq-btn-icon rq-btn-del" onClick={() => deleteReq(req.id)}><Trash2 size={13} /></button>
-                    </div>
-                  </div>
                 )}
               </div>
-            ))}
-            {!reqsBusy && (
-              <div className="rq-row" style={{ marginTop: 8 }}>
-                <input className="rq-input" placeholder="Add your own requirement…" value={newReq} onChange={e => setNewReq(e.target.value)} onKeyDown={e => e.key === "Enter" && addReq()} />
-                <button className="rq-btn-ghost" onClick={addReq} disabled={!newReq.trim()} style={{ whiteSpace: "nowrap" }}><Plus size={13} /> Add</button>
-              </div>
             )}
-            {!reqsBusy && requirements.length > 0 && (
-              <div className="rq-actions" style={{ marginTop: 24 }}>
-                <button className="rq-btn-ghost" onClick={() => setStep(0)}>← Back</button>
-                <button className="rq-btn-primary" onClick={() => setStep(2)}>Continue to Questions <ChevronRight size={14} /></button>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* ── Step 2: Questions ── */}
-        {step === 2 && (
-          <div className="rq-fade">
-            <div className="rq-section-label">Discovery Questions</div>
-            <p className="rq-hint">The agent will generate 2–3 follow-up questions per requirement — a mix of open-ended and multiple choice.</p>
-            {qErr && <div className="rq-error">{qErr}</div>}
-            {qBusy && <div className="rq-loading-center"><Loader size={20} className="spin" style={{ marginBottom: 8 }} /><br />Generating questions for {requirements.length} requirement{requirements.length !== 1 ? "s" : ""}…</div>}
-            {!qBusy && (
-              <div className="rq-actions">
-                <button className="rq-btn-ghost" onClick={() => setStep(1)}>← Back</button>
-                <button className="rq-btn-primary" onClick={doGenerateQuestions}>Generate Questions <ChevronRight size={14} /></button>
-              </div>
-            )}
-          </div>
-        )}
+            {/* ── Step 3: Review ── */}
+            {step === 3 && (
+              <div className="rq-fade">
+                <div className="rq-section-label">1. Scope</div>
+                <div className="rq-scope-box" style={{ marginBottom: 24 }}>{formalScope}</div>
+                <hr className="rq-divider" />
 
-        {/* ── Step 3: Review ── */}
-        {step === 3 && (
-          <div className="rq-fade">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
-              <div><div className="rq-section-label">Review &amp; Export</div><p className="rq-hint" style={{ marginBottom: 0 }}>Review everything, adjust the timeline, then export.</p></div>
-              <button className="rq-btn-ghost" onClick={() => setStep(2)}>← Back</button>
-            </div>
-
-            <div className="rq-section-label">1. Scope</div>
-            <div className="rq-scope-box" style={{ marginBottom: 28 }}>{formalScope}</div>
-            <hr className="rq-divider" />
-
-            <div className="rq-section-label">2. Functional Requirements ({requirements.length})</div>
-            <div style={{ marginBottom: 28 }}>
-              {requirements.map(req => (
-                <div className="rq-req-card" key={req.id} style={{ cursor: "default" }}>
-                  <div className="rq-req-id">{req.id}</div>
-                  <div className="rq-req-text">{req.text}</div>
+                <div className="rq-section-label">2. Functional requirements ({requirements.length})</div>
+                <div style={{ marginBottom: 24 }}>
+                  {requirements.map(req => (
+                    <div className="rq-card" key={req.id} style={{ cursor: "default" }}>
+                      <div className="rq-req-id">{req.id}</div>
+                      <div className="rq-req-text">{req.text}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <hr className="rq-divider" />
+                <hr className="rq-divider" />
 
-            <div className="rq-section-label">3. Questions</div>
-            <div style={{ marginBottom: 28 }}>
-              {requirements.map(req => {
-                const qs = questions[req.id] || [];
-                return (
-                  <div key={req.id} style={{ marginBottom: 24 }}>
-                    <div className="rq-req-group-label">{req.id} — {req.text}</div>
-                    {qs.map((q, i) => (
-                      <div className="rq-q-card" key={i}>
-                        <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open Ended" : "Multiple Choice"}</div>
-                        <div className="rq-q-text">{q.text}</div>
-                        {q.type === "multiple_choice" && q.options?.length && (
-                          <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-            <hr className="rq-divider" />
-
-            {/* 4. Timeline */}
-            <div className="rq-section-label">4. Procurement Timeline</div>
-            <p className="rq-hint">Set your start and go-live dates — all activity dates will cascade automatically from the start date. Adjust individual dates or offsets as needed.</p>
-
-            {/* Date drivers */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-              <div style={{ background: "#fff", border: "1.5px solid #e3ddd6", borderRadius: 8, padding: "14px 18px" }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#2e5984", marginBottom: 6 }}>RFP Start Date</div>
-                <input type="date" className="rq-input" value={rfpStart} onChange={e => handleRfpStartChange(e.target.value)} />
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, color: "#b0a899", marginTop: 6 }}>Drives all activity start dates</div>
-              </div>
-              <div style={{ background: "#fff", border: "1.5px solid #e3ddd6", borderRadius: 8, padding: "14px 18px" }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#a05828", marginBottom: 6 }}>Go-Live Date</div>
-                <input type="date" className="rq-input" value={goLive} onChange={e => handleGoLiveChange(e.target.value)} />
-                {rfpStart && goLive && (
-                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "#6b5f52", marginTop: 6 }}>
-                    {calDaysBetween(rfpStart, goLive)} calendar days total
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Column headers */}
-            <div style={{ display: "grid", gridTemplateColumns: "20px 1fr 110px 110px 70px 60px 32px", gap: 6, marginBottom: 6, paddingLeft: 10, paddingRight: 4 }}>
-              <div /><div className="tl-col-hdr">Activity</div><div className="tl-col-hdr">Start</div><div className="tl-col-hdr">End</div><div className="tl-col-hdr">Offset (days)</div><div className="tl-col-hdr">Duration</div><div />
-            </div>
-
-            {GROUPS.map(g => {
-              const gas = activities.filter(a => a.group === g);
-              const collapsed = collapsedGroups[g];
-              const colorClass = g === "Pre-RFP" ? "tl-group-pre" : g === "RFP" ? "tl-group-rfp" : "tl-group-post";
-              return (
-                <div key={g} style={{ marginBottom: 16 }}>
-                  <div className="tl-group-header" onClick={() => toggleGroup(g)}>
-                    <div className={`tl-group-label ${colorClass}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: GROUP_COLORS[g] }} />
-                      {g} <span style={{ fontWeight: 400, color: "#b0a899", marginLeft: 4 }}>({gas.length})</span>
-                    </div>
-                    {collapsed ? <ChevronDown size={14} style={{ color: "#b0a899" }} /> : <ChevronUp size={14} style={{ color: "#b0a899" }} />}
-                  </div>
-
-                  {!collapsed && gas.map(a => {
-                    const dur = a.startDate && a.endDate ? calDaysBetween(a.startDate, a.endDate) : "—";
+                <div className="rq-section-label">3. Questions</div>
+                <div style={{ marginBottom: 24 }}>
+                  {requirements.map(req => {
+                    const qs = questions[req.id] || [];
                     return (
-                      <div
-                        key={a.id}
-                        className={`tl-act-row${a.parentId ? " is-child" : " is-parent"}${dragId === a.id ? " dragging" : ""}${dragOverId === a.id ? " drag-over" : ""}`}
-                        style={{ gridTemplateColumns: "20px 1fr 110px 110px 70px 60px 32px", display: "grid", gap: 6 }}
-                        draggable
-                        onDragStart={() => onDragStart(a.id)}
-                        onDragOver={(e) => onDragOver(e, a.id)}
-                        onDrop={(e) => onDrop(e, a.id)}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", cursor: "grab", color: "#c9b99a" }}><GripVertical size={14} /></div>
-                        <input className="tl-cell-input" value={a.name} onChange={e => updateActivity(a.id, "name", e.target.value)} style={{ fontStyle: a.parentId ? "italic" : "normal" }} />
-                        <input type="date" className="tl-cell-input" value={a.startDate || ""} onChange={e => updateActivity(a.id, "startDate", e.target.value)} />
-                        <input type="date" className="tl-cell-input" value={a.endDate || ""} onChange={e => updateActivity(a.id, "endDate", e.target.value)} />
-                        <input type="number" min="0" className="tl-cell-input" style={{ textAlign: "center" }} value={a.offsetDays ?? ""} onChange={e => updateActivity(a.id, "offsetDays", e.target.value)} />
-                        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#8a7e72", display: "flex", alignItems: "center", justifyContent: "center" }}>{dur}d</div>
-                        <button className="rq-btn-icon rq-btn-del" onClick={() => deleteActivity(a.id)} style={{ padding: "4px 6px" }}><Trash2 size={11} /></button>
+                      <div key={req.id} style={{ marginBottom: 22 }}>
+                        <div className="rq-req-group-label">{req.id} — {req.text}</div>
+                        {qs.map((q, i) => (
+                          <div className="rq-q-card" key={i}>
+                            <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open ended" : "Multiple choice"}</div>
+                            <div className="rq-q-text">{q.text}</div>
+                            {q.type === "multiple_choice" && q.options?.length && (
+                              <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     );
                   })}
                 </div>
-              );
-            })}
+                <hr className="rq-divider" />
 
-            {/* Add activity */}
-            <div className="rq-row" style={{ marginTop: 8, marginBottom: 24 }}>
-              <input className="rq-input" placeholder="New activity name…" value={newActName} onChange={e => setNewActName(e.target.value)} onKeyDown={e => e.key === "Enter" && addActivity()} style={{ flex: 1 }} />
-              <select style={{ border: "1.5px solid #e3ddd6", borderRadius: 6, padding: "10px 10px", fontFamily: "'Syne',sans-serif", fontSize: 11, color: "#1a1714", background: "#faf9f7", outline: "none" }} value={newActGroup} onChange={e => setNewActGroup(e.target.value)}>
-                {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
-              <button className="rq-btn-ghost" onClick={addActivity} disabled={!newActName.trim()} style={{ whiteSpace: "nowrap" }}><Plus size={13} /> Add</button>
-            </div>
+                {/* 4. Timeline */}
+                <div className="rq-section-label">4. Procurement timeline</div>
+                <p className="rq-hint">Set your start and go-live dates — all activity dates cascade automatically. Adjust individual dates or offsets as needed.</p>
 
-            {/* Gantt */}
-            <GanttChart activities={activities} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
+                  <div style={{ background: "#1b2530", border: "1px solid rgba(93,202,165,0.2)", borderRadius: 8, padding: "14px 16px" }}>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#5DCAA5", marginBottom: 6 }}>RFP Start Date</div>
+                    <input type="date" className="rq-input" value={rfpStart} onChange={e => handleRfpStartChange(e.target.value)} />
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, color: "#3a5060", marginTop: 5 }}>Drives all activity dates</div>
+                  </div>
+                  <div style={{ background: "#1b2530", border: "1px solid rgba(239,159,39,0.2)", borderRadius: 8, padding: "14px 16px" }}>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#EF9F27", marginBottom: 6 }}>Go-Live Date</div>
+                    <input type="date" className="rq-input" value={goLive} onChange={e => handleGoLiveChange(e.target.value)} />
+                    {rfpStart && goLive && (
+                      <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "#607a8a", marginTop: 5 }}>{calDaysBetween(rfpStart, goLive)} calendar days total</div>
+                    )}
+                  </div>
+                </div>
 
-            <hr className="rq-divider" />
-            {exportErr && <div className="rq-error">{exportErr}</div>}
-            <button className="rq-btn-primary" onClick={doExport} disabled={exportBusy} style={{ padding: "14px 28px", fontSize: 12 }}>
-              {exportBusy ? <><Loader size={15} className="spin" /> Exporting…</> : <><FileText size={15} /> Export to .docx</>}
-            </button>
+                <div style={{ display: "grid", gridTemplateColumns: "20px 1fr 110px 110px 70px 60px 32px", gap: 6, marginBottom: 6, paddingLeft: 10, paddingRight: 4 }}>
+                  <div /><div className="tl-col-hdr">Activity</div><div className="tl-col-hdr">Start</div><div className="tl-col-hdr">End</div><div className="tl-col-hdr">Offset (days)</div><div className="tl-col-hdr">Duration</div><div />
+                </div>
+
+                {GROUPS.map(g => {
+                  const gas = activities.filter(a => a.group === g);
+                  const collapsed = collapsedGroups[g];
+                  const colorClass = g === "Pre-RFP" ? "tl-group-pre" : g === "RFP" ? "tl-group-rfp" : "tl-group-post";
+                  return (
+                    <div key={g} style={{ marginBottom: 14 }}>
+                      <div className="tl-group-header" onClick={() => toggleGroup(g)}>
+                        <div className={`tl-group-label ${colorClass}`}>
+                          <div style={{ width: 7, height: 7, borderRadius: "50%", background: GROUP_COLORS[g] }} />
+                          {g} <span style={{ fontWeight: 400, color: "#3a5060", marginLeft: 4 }}>({gas.length})</span>
+                        </div>
+                        {collapsed ? <ChevronDown size={13} style={{ color: "#3a5060" }} /> : <ChevronUp size={13} style={{ color: "#3a5060" }} />}
+                      </div>
+                      {!collapsed && gas.map(a => {
+                        const dur = a.startDate && a.endDate ? calDaysBetween(a.startDate, a.endDate) : "—";
+                        return (
+                          <div key={a.id}
+                            className={`tl-act-row${a.parentId ? " is-child" : " is-parent"}${dragId === a.id ? " dragging" : ""}${dragOverId === a.id ? " drag-over" : ""}`}
+                            style={{ gridTemplateColumns: "20px 1fr 110px 110px 70px 60px 32px", display: "grid", gap: 6 }}
+                            draggable onDragStart={() => onDragStart(a.id)} onDragOver={(e) => onDragOver(e, a.id)} onDrop={(e) => onDrop(e, a.id)}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", cursor: "grab", color: "#3a5060" }}><GripVertical size={13} /></div>
+                            <input className="tl-cell-input" value={a.name} onChange={e => updateActivity(a.id, "name", e.target.value)} style={{ fontStyle: a.parentId ? "italic" : "normal" }} />
+                            <input type="date" className="tl-cell-input" value={a.startDate || ""} onChange={e => updateActivity(a.id, "startDate", e.target.value)} />
+                            <input type="date" className="tl-cell-input" value={a.endDate || ""} onChange={e => updateActivity(a.id, "endDate", e.target.value)} />
+                            <input type="number" min="0" className="tl-cell-input" style={{ textAlign: "center" }} value={a.offsetDays ?? ""} onChange={e => updateActivity(a.id, "offsetDays", e.target.value)} />
+                            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#3a5060", display: "flex", alignItems: "center", justifyContent: "center" }}>{dur}d</div>
+                            <button className="rq-btn-icon rq-btn-del" onClick={() => deleteActivity(a.id)} style={{ padding: "4px 6px" }}><Trash2 size={11} /></button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+
+                <div className="rq-row" style={{ marginTop: 8, marginBottom: 22 }}>
+                  <input className="rq-input" placeholder="New activity name…" value={newActName} onChange={e => setNewActName(e.target.value)} onKeyDown={e => e.key === "Enter" && addActivity()} style={{ flex: 1 }} />
+                  <select style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "9px 10px", fontFamily: "'Syne',sans-serif", fontSize: 11, color: "#d8eaf2", background: "#141d26", outline: "none" }} value={newActGroup} onChange={e => setNewActGroup(e.target.value)}>
+                    {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                  <button className="rq-btn-ghost" onClick={addActivity} disabled={!newActName.trim()} style={{ whiteSpace: "nowrap" }}><Plus size={12} /> Add</button>
+                </div>
+
+                <GanttChart activities={activities} />
+
+                <hr className="rq-divider" />
+                {exportErr && <div className="rq-error">{exportErr}</div>}
+                <button className="rq-btn-primary" onClick={doExport} disabled={exportBusy} style={{ padding: "12px 28px" }}>
+                  {exportBusy ? <><Loader size={14} className="spin" /> Exporting…</> : <><FileText size={14} /> Export to .docx</>}
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
