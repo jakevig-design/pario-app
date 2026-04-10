@@ -675,7 +675,7 @@ async function buildDocx({ sessionId, projectTitle, formalScope, requirements, q
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function RequirementsAgent() {
-  const [sessionId] = useState(genId);
+  const [sessionId, setSessionId] = useState(genId);
   const [step, setStep] = useState(0);
   const [projectTitle, setProjectTitle] = useState("");
   const [view, setView] = useState("splash");
@@ -733,7 +733,7 @@ export default function RequirementsAgent() {
 
   const allAnswered = FIVE_WS.every(w => answers[w.key].trim().length > 0);
   const isSkipped = (val) => val.trim().toLowerCase() === "skip";
-  const allFlagResponsesFilled = scopeFlags.every((f, idx) => (flagResponses[`${f.criterion}_${idx}`] || "").trim().length > 0);
+  const allFlagResponsesFilled = scopeFlags.every((_, idx) => (flagResponses[idx] || "").trim().length > 0);
 
   useEffect(() => { isDirty.current = true; }, [projectTitle, answers, formalScope, requirements, questions, activities]);
 
@@ -748,6 +748,7 @@ export default function RequirementsAgent() {
   });
 
   const resetSession = () => {
+    setSessionId(genId());
     setProjectTitle("");
     setAnswers({ who: "", what: "", where: "", when: "", why: "" });
     setFormalScope("");
@@ -844,6 +845,7 @@ export default function RequirementsAgent() {
       const result = await callJSON(P_SCOPE_EVALUATE, `Scope to evaluate:\n\n${scopeText}`);
       if (result.passed && result.flags.length === 0) {
         setScopeFlags([]);
+        setFlagResponses({});
         // Fire expert questions
         try {
           const eq = await callJSON(P_SCOPE_EXPERT, `Scope:\n\n${scopeText}`);
@@ -858,6 +860,7 @@ export default function RequirementsAgent() {
         }
       } else {
         setScopeFlags(result.flags || []);
+        setFlagResponses({});
         setScopeApproved(false);
       }
     } catch {
@@ -893,10 +896,10 @@ export default function RequirementsAgent() {
   const doRefineScope = async () => {
     setScopeBusy(true); setScopeErr("");
     try {
-      const activeFlags = scopeFlags.filter((f, idx) => !isSkipped(flagResponses[`${f.criterion}_${idx}`] || ""));
+      const activeFlags = scopeFlags.filter((_, idx) => !isSkipped(flagResponses[idx] || ""));
       if (activeFlags.length === 0) { setScopeFlags([]); setScopeApproved(true); setScopeBusy(false); return; }
       const additions = scopeFlags.map((f, idx) => {
-        const val = flagResponses[`${f.criterion}_${idx}`] || "";
+        const val = flagResponses[idx] || "";
         if (isSkipped(val)) return null;
         return `GAP: ${f.issue}\nUSER RESPONSE: ${val}`;
       }).filter(Boolean).join("\n\n");
@@ -1340,14 +1343,13 @@ export default function RequirementsAgent() {
                       <div style={{ marginTop: 18 }} className="rq-fade">
                         <div className="rq-section-label" style={{ marginBottom: 10 }}>Scope review — action required</div>
                         {scopeFlags.map((flag, idx) => {
-                          const key = `${flag.criterion}_${idx}`;
-                          const val = flagResponses[key] || "";
+                          const val = flagResponses[idx] || "";
                           const skipped = isSkipped(val);
                           return (
-                            <div className="rq-flag-card" key={key} style={{ opacity: skipped ? 0.5 : 1 }}>
+                            <div className="rq-flag-card" key={idx} style={{ opacity: skipped ? 0.5 : 1 }}>
                               <div className="rq-flag-title"><AlertTriangle size={13} /> {flag.criterion}{skipped && <span style={{ marginLeft: 8, fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#EF9F27", background: "rgba(239,159,39,0.15)", padding: "2px 7px", borderRadius: 3 }}>SKIPPED</span>}</div>
                               {!skipped && <div className="rq-flag-text">{flag.prompt}</div>}
-                              <textarea className="rq-textarea" placeholder={`Your response… (type "skip" to dismiss)`} value={val} onChange={e => setFlagResponses(p => ({ ...p, [key]: e.target.value }))} rows={skipped ? 1 : 2} style={{ opacity: skipped ? 0.6 : 1 }} />
+                              <textarea className="rq-textarea" placeholder={`Your response… (type "skip" to dismiss)`} value={val} onChange={e => setFlagResponses(p => ({ ...p, [idx]: e.target.value }))} rows={skipped ? 1 : 2} style={{ opacity: skipped ? 0.6 : 1 }} />
                             </div>
                           );
                         })}
