@@ -480,6 +480,31 @@ const P_SCOPE_REFINE = `You are a professional business analyst refining a proje
 
 The user has provided additional information to address a gap in the scope. Incorporate their response naturally into the existing scope. Keep the same tone and style. Return ONLY the updated scope text — no preamble, no explanation.`;
 
+const P_SCOPE_EXPERT = `You are a senior procurement consultant with deep domain expertise across enterprise software categories.
+
+Given a project scope, identify the software category being procured and generate 2-4 expert-level clarifying questions that a seasoned procurement professional would ask. These questions should surface information that materially affects vendor selection, contract terms, or implementation complexity — things the user likely knows but didn't think to include.
+
+Examples of good expert questions:
+- For HR systems: "How many employees will this system support, and across how many countries or legal entities?"
+- For HR systems: "What are the specific legacy systems being replaced, and what does each currently handle?"
+- For ITSM: "What is the current ticket volume per month, and how many agents will use the system?"
+- For ERP: "Are you on a single instance today, or do you have multiple separate systems by business unit?"
+- For CRM: "How many active opportunities are in your current pipeline, and what is your average deal cycle length?"
+
+RULES:
+- Questions must be specific to the inferred software category — not generic
+- Ask only what would genuinely change the scope, vendor selection, or contract
+- Each question should be skippable — the user may not know or may not want to share
+- Do not re-ask anything already answered in the scope
+
+Respond ONLY with valid JSON, no markdown:
+[
+  {
+    "question": "How many employees will this system support, and across how many countries or legal entities?",
+    "why": "Affects licensing model and compliance requirements"
+  }
+]`;
+
 const P_REQS = `You are a business analyst writing functional requirements for a software procurement RFP.
 
 Generate 5-8 binary functional requirements from the project scope.
@@ -669,6 +694,9 @@ export default function RequirementsAgent() {
   const [scopeBusy, setScopeBusy] = useState(false);
   const [scopeErr, setScopeErr] = useState("");
   const [editingScope, setEditingScope] = useState(false);
+  const [expertQuestions, setExpertQuestions] = useState([]);
+  const [expertResponses, setExpertResponses] = useState({});
+  const [expertApproved, setExpertApproved] = useState(false);
 
   // Requirements
   const [requirements, setRequirements] = useState([]);
@@ -728,6 +756,9 @@ export default function RequirementsAgent() {
     setScopeApproved(false);
     setScopeErr("");
     setEditingScope(false);
+    setExpertQuestions([]);
+    setExpertResponses({});
+    setExpertApproved(false);
     setRequirements([]);
     setReqsErr("");
     setNewReq("");
@@ -811,9 +842,52 @@ export default function RequirementsAgent() {
   const doEvaluateScope = async (scopeText) => {
     try {
       const result = await callJSON(P_SCOPE_EVALUATE, `Scope to evaluate:\n\n${scopeText}`);
-      if (result.passed && result.flags.length === 0) { setScopeFlags([]); setScopeApproved(true); }
-      else { setScopeFlags(result.flags || []); setScopeApproved(false); }
-    } catch { setScopeFlags([]); setScopeApproved(true); }
+      if (result.passed && result.flags.length === 0) {
+        setScopeFlags([]);
+        // Fire expert questions
+        try {
+          const eq = await callJSON(P_SCOPE_EXPERT, `Scope:\n\n${scopeText}`);
+          if (eq && eq.length > 0) {
+            setExpertQuestions(eq);
+            setExpertApproved(false);
+          } else {
+            setExpertApproved(true);
+          }
+        } catch {
+          setExpertApproved(true); // fail open
+        }
+      } else {
+        setScopeFlags(result.flags || []);
+        setScopeApproved(false);
+      }
+    } catch {
+      setScopeFlags([]);
+      setScopeApproved(true);
+    }
+  };
+
+  const doSubmitExpertAnswers = async () => {
+    setScopeBusy(true); setScopeErr("");
+    try {
+      const answered = expertQuestions.filter(q => {
+        const r = expertResponses[q.question] || "";
+        return r.trim().length > 0 && r.trim().toLowerCase() !== "skip";
+      });
+      if (answered.length === 0) {
+        // All skipped — just approve
+        setExpertQuestions([]);
+        setScopeApproved(true);
+        setScopeBusy(false);
+        return;
+      }
+      const additions = answered.map(q => `EXPERT QUESTION: ${q.question}\nUSER RESPONSE: ${expertResponses[q.question]}`).join("\n\n");
+      const refined = await callClaude(P_SCOPE_REFINE, `EXISTING SCOPE:\n${formalScope}\n\nADDITIONAL INFORMATION:\n${additions}`);
+      setFormalScope(refined.trim());
+      setExpertQuestions([]);
+      setExpertResponses({});
+      setScopeApproved(true);
+    } catch { setScopeErr("Could not refine scope. Please try again."); }
+    finally { setScopeBusy(false); }
   };
 
   const doRefineScope = async () => {
@@ -1284,6 +1358,38 @@ export default function RequirementsAgent() {
                         <div className="rq-scope-approved"><CheckCircle size={15} /> Scope approved — all criteria met</div>
                         <div className="rq-actions">
                           <button className="rq-btn-primary" onClick={() => { setView("requirements"); doGenerateReqs(); }}>Generate requirements <ChevronRight size={13} /></button>
+                        </div>
+                      </div>
+                    )}
+                    {expertQuestions.length > 0 && !scopeApproved && !editingScope && (
+                      <div style={{ marginTop: 18 }} className="rq-fade">
+                        <div className="rq-section-label" style={{ marginBottom: 4 }}>Expert questions</div>
+                        <p className="rq-hint" style={{ marginBottom: 14 }}>These questions will help sharpen the scope. Answer what you can — type "skip" to dismiss any you'd rather not answer.</p>
+                        {expertQuestions.map(q => {
+                          const val = expertResponses[q.question] || "";
+                          const skipped = val.trim().toLowerCase() === "skip";
+                          return (
+                            <div key={q.question} className="rq-flag-card" style={{ opacity: skipped ? 0.5 : 1, background: "rgba(93,202,165,0.04)", borderColor: "rgba(93,202,165,0.2)" }}>
+                              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#a8c8d8", marginBottom: 4 }}>{q.question}</div>
+                              <div style={{ fontFamily: "'Lora',serif", fontSize: 11, color: "#607a8a", fontStyle: "italic", marginBottom: 8 }}>{q.why}</div>
+                              <textarea
+                                className="rq-textarea"
+                                placeholder={`Your answer… (type "skip" to dismiss)`}
+                                value={val}
+                                onChange={e => setExpertResponses(p => ({ ...p, [q.question]: e.target.value }))}
+                                rows={skipped ? 1 : 2}
+                                style={{ opacity: skipped ? 0.6 : 1 }}
+                              />
+                            </div>
+                          );
+                        })}
+                        <div className="rq-actions">
+                          <button className="rq-btn-primary" onClick={doSubmitExpertAnswers} disabled={scopeBusy}>
+                            {scopeBusy ? <><Loader size={13} className="spin" /> Updating scope…</> : <>Update scope <ChevronRight size={13} /></>}
+                          </button>
+                          <button className="rq-btn-ghost" onClick={() => { setExpertQuestions([]); setScopeApproved(true); }}>
+                            Skip all
+                          </button>
                         </div>
                       </div>
                     )}
