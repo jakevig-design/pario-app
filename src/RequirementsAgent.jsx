@@ -1347,32 +1347,37 @@ export default function RequirementsAgent() {
                       const matchPct = v.requirementsTotal > 0 ? v.requirementsMatch / v.requirementsTotal : 0;
                       return (
                         <div key={v.name} className={`vendor-card rq-fade${status === "shortlisted" ? " shortlisted" : status === "eliminated" ? " eliminated" : ""}`}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                            <div style={{ minWidth: 0 }}>
-                              {/* Vendor — Product name with link */}
-                              <div className="vendor-name">
-                                {(v.vendorUrl || v.g2Url) ? (
-                                  <a href={v.vendorUrl || v.g2Url} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none", borderBottom: "1px solid rgba(93,202,165,0.4)", cursor: "pointer" }}>
-                                    {v.name}
-                                  </a>
-                                ) : (
-                                  <a href={`https://www.google.com/search?q=${encodeURIComponent(v.name + " " + v.category)}`} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none", borderBottom: "1px solid rgba(96,122,138,0.4)", cursor: "pointer" }}>
-                                    {v.name}
-                                  </a>
-                                )}
-                              </div>
-                              <div className="vendor-category">{v.category}</div>
+                          {/* Header row: name + status + search links all on one line */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                            <div className="vendor-name" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+                              <a href={v.vendorUrl || `https://www.google.com/search?q=${encodeURIComponent(v.name + " " + v.category)}`} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none", borderBottom: "1px solid rgba(93,202,165,0.35)" }}>
+                                {v.name}
+                              </a>
                             </div>
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
-                              {status === "shortlisted" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#5DCAA5", background: "rgba(93,202,165,0.12)", padding: "3px 8px", borderRadius: 3 }}>Shortlisted</span>}
-                              {status === "eliminated" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#e07070", background: "rgba(184,80,80,0.1)", padding: "3px 8px", borderRadius: 3 }}>Eliminated</span>}
-                              <div style={{ display: "flex", gap: 5 }}>
-                                {v.g2Url && <a href={v.g2Url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}><button className="vendor-btn vendor-btn-g2">G2 ↗</button></a>}
-                              </div>
-                            </div>
+                            {status === "shortlisted" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#5DCAA5", background: "rgba(93,202,165,0.12)", padding: "2px 7px", borderRadius: 3, flexShrink: 0 }}>Shortlisted</span>}
+                            {status === "eliminated" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#e07070", background: "rgba(184,80,80,0.1)", padding: "2px 7px", borderRadius: 3, flexShrink: 0 }}>Eliminated</span>}
+                            {/* Search links — consistent across all cards */}
+                            {(() => {
+                              const q = encodeURIComponent(v.name.split(" — ").pop());
+                              const links = [
+                                { label: "G2", url: v.g2Url || `https://www.g2.com/search#q=${q}&segment=all` },
+                                { label: "Capterra", url: `https://www.capterra.com/search/#q=${q}` },
+                                { label: "SourceForge", url: `https://sourceforge.net/software/search/?q=${q}` },
+                                { label: "GoodFirms", url: `https://www.goodfirms.co/software/search?q=${q}` },
+                                { label: "Reddit", url: `https://www.reddit.com/search/?q=${q}+software+review&sort=relevance` },
+                              ];
+                              return (
+                                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                                  {links.map(l => (
+                                    <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                                      <button className="vendor-btn vendor-btn-g2" style={{ padding: "2px 6px", fontSize: 9 }}>{l.label} ↗</button>
+                                    </a>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </div>
-
-                          {/* Badge row */}
+                          <div className="vendor-category" style={{ marginBottom: 8 }}>{v.category}</div>
                           <div className="vendor-badges">
                             {v.deployment && (
                               <span className={`vendor-badge ${v.deployment === "SaaS" ? "vb-saas" : v.deployment === "On-Prem" ? "vb-onprem" : "vb-hybrid"}`}>
