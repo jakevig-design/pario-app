@@ -1083,7 +1083,6 @@ export default function RequirementsAgent() {
           <div className="rq-sidebar">
             <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
               <div className="rq-sidebar-brand">RFxBOT</div>
-              <div className="rq-sidebar-title">Agent</div>
             </div>
             <div className="rq-nav">
               <div className="rq-nav-item active"><div className="rq-nav-num" style={{ fontSize: 8 }}>⌂</div>Home</div>
