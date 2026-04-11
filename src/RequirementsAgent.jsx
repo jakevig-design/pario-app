@@ -1066,13 +1066,13 @@ export default function RequirementsAgent() {
     market: "Market Research", timeline: "Timeline", summary: "Summary",
   };
   const topbarSubs = {
-    splash: "RFP Agent", sessions: "All drafts",
+    splash: "RFxBOT", sessions: "All drafts",
     scope: projectTitle || "Untitled project",
     requirements: projectTitle || "Untitled project",
     questions: projectTitle || "Untitled project",
-    market: (projectTitle || "Untitled project") + " · Vendor identification",
+    market: (projectTitle || "Untitled project") + " ",
     timeline: projectTitle || "Untitled project",
-    summary: (projectTitle || "Untitled project") + " · Executive snapshot",
+    summary: (projectTitle || "Untitled project") + " ",
   };
 
   // ── Splash ──
@@ -1082,7 +1082,7 @@ export default function RequirementsAgent() {
         <div className="rq-shell">
           <div className="rq-sidebar">
             <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
-              <div className="rq-sidebar-brand">RFP Agent</div>
+              <div className="rq-sidebar-brand">RFxBOT</div>
               <div className="rq-sidebar-title">Agent</div>
             </div>
             <div className="rq-nav">
@@ -1094,15 +1094,15 @@ export default function RequirementsAgent() {
             <div className="rq-topbar">
               <div className="rq-topbar-left">
                 <div className="rq-topbar-title">Home</div>
-                <div className="rq-topbar-sub">RFP Agent</div>
+                <div className="rq-topbar-sub">RFxBOT</div>
               </div>
             </div>
             <div className="rq-content" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
               <div style={{ textAlign: "center", maxWidth: 480 }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#5DCAA5", marginBottom: 12 }}>RFP Agent</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#5DCAA5", marginBottom: 12 }}>RFxBOT</div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: "#d8eaf2", marginBottom: 4, lineHeight: 1.15 }}>Don't Be Sold On Value.</div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: "#5DCAA5", marginBottom: 20, lineHeight: 1.15 }}>Buy Based On Needs.</div>
-                <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#607a8a", lineHeight: 1.7, marginBottom: 36 }}>AI-powered procurement requirements tool. Build a scoped, structured RFP in minutes — scope, requirements, discovery questions, timeline, and vendor shortlist.</div>
+                <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#607a8a", lineHeight: 1.7, marginBottom: 36 }}>Before you fill out their form, build your list. 15 minutes of prep buys you what you need, not what they want to sell.</div>
                 <button className="rq-btn-primary" style={{ padding: "14px 32px", fontSize: 13 }} onClick={resetSession}>
                   <Plus size={15} /> Start new session
                 </button>
@@ -1121,7 +1121,7 @@ export default function RequirementsAgent() {
   const sidebarNav = (
     <div className="rq-sidebar">
       <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
-        <div className="rq-sidebar-brand">RFP Agent</div>
+        <div className="rq-sidebar-brand">RFxBOT</div>
         <div className="rq-sidebar-title">Agent</div>
         <div className="rq-sidebar-session">{sessionId}</div>
       </div>
