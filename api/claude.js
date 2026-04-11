@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 
     const body = {
       model: 'claude-sonnet-4-5',
-      max_tokens: 4000,
+      max_tokens: useWebSearch ? 8000 : 4000,
       system: system ?? '',
       messages: [{ role: 'user', content: user }],
       ...(useWebSearch ? { tools: [{ type: 'web_search_20250305', name: 'web_search' }] } : {}),
