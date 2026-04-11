@@ -538,28 +538,33 @@ RULES:
 Return ONLY valid JSON, no markdown:
 [{"type":"open_ended","text":"..."},{"type":"multiple_choice","text":"...","options":["A","B","C"]}]`;
 
-const P_MARKET = `You are a procurement analyst conducting market research for a software procurement.
+const P_MARKET = `You are a procurement analyst conducting vendor market research. Your only job is to return a JSON array of vendors. You must never editorialize, explain, warn, or provide context — only JSON.
 
-Given a project scope and functional requirements, use web search to identify 5-8 relevant software vendors. Search G2.com, Gartner, and vendor websites for current ratings and descriptions.
+Use web search to identify 5-8 software vendors relevant to the project scope and requirements provided.
 
-After completing your research, you MUST respond with ONLY a valid JSON array — no introduction, no explanation, no markdown fences. Just the raw JSON array starting with [ and ending with ].
+CRITICAL OUTPUT RULES:
+- Your entire response must be a single JSON array
+- Start with [ and end with ]
+- No text before or after the array
+- No markdown, no code fences, no explanation
+- If you have notes or caveats, put them inside the "description" field of the relevant vendor object — do not output them outside the JSON
 
-Each object in the array must have exactly these fields:
+Each vendor object must have exactly these fields:
 {
   "name": "Vendor Name",
-  "category": "Software category (e.g. ITAM, ERP, CMDB)",
+  "category": "Software category (e.g. ITAM, ERP, HRIS)",
   "g2Rating": "4.5/5 or N/A",
   "g2ReviewCount": "1,200 reviews or N/A",
-  "description": "One sentence describing what the vendor does.",
+  "description": "One sentence on what this vendor does and why it is relevant to this scope.",
   "requirementsMatch": 4,
   "requirementsTotal": 6,
   "matchConfidence": "high",
   "g2Url": "https://www.g2.com/products/... or null"
 }
 
-requirementsMatch is your estimate of how many requirements this vendor meets.
-matchConfidence is high, medium, or low based on how certain you are.
-Your entire response must be parseable by JSON.parse() with no preprocessing.`;
+requirementsMatch: your estimate of how many of the provided requirements this vendor meets.
+matchConfidence: high, medium, or low.
+The response must be parseable by JSON.parse() with zero preprocessing.`;
 const FIVE_WS = [
   { key: "who", label: "Who", question: "Who will use this system, and who owns this initiative?", placeholder: "e.g. Shop floor technicians will use it daily. The VP of Operations is the project sponsor." },
   { key: "what", label: "What", question: "What problem are you solving, or what capability are you adding?", placeholder: "e.g. We lose track of tools constantly. We need real-time visibility into tool location and condition." },
