@@ -221,7 +221,11 @@ async function callClaude(system, user, useWebSearch = false) {
 
 async function callJSON(system, user, useWebSearch = false) {
   const t = await callClaude(system, user, useWebSearch);
-  return JSON.parse(t.replace(/```json\s*/g, "").replace(/```/g, "").trim());
+  try {
+    return JSON.parse(t.replace(/```json\s*/g, "").replace(/```/g, "").trim());
+  } catch {
+    throw new Error(`JSON parse failed. Raw response: ${t.slice(0, 300)}`);
+  }
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -742,10 +746,18 @@ export default function RequirementsAgent() {
     loadSessions().then(rows => { setSessionsList(rows); setSessionsLoading(false); });
   }, []);
 
+  const formalScopeRef = useRef(formalScope);
+  useEffect(() => { formalScopeRef.current = formalScope; }, [formalScope]);
+
+  const doSaveRef = useRef(null);
+  useEffect(() => { doSaveRef.current = doSave; });
+
   useEffect(() => {
-    const t = setInterval(() => { if (isDirty.current && formalScope) doSave("draft"); }, 30000);
+    const t = setInterval(() => {
+      if (isDirty.current && formalScopeRef.current) doSaveRef.current?.("draft");
+    }, 30000);
     return () => clearInterval(t);
-  });
+  }, []);
 
   const resetSession = () => {
     setSessionId(genId());
@@ -1007,7 +1019,7 @@ export default function RequirementsAgent() {
       setVendors(result);
       setVendorStatus({});
     } catch (e) {
-      setMarketErr("Market research failed. Please try again.");
+      setMarketErr(`Market research failed: ${e.message}`);
     } finally {
       setMarketBusy(false);
     }
