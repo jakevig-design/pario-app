@@ -1,4 +1,4 @@
-aimport { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FileText, Plus, Trash2, Loader, ChevronRight, CheckCircle, Pencil, X, Check, RefreshCw, AlertTriangle, Calendar, Save, Clock, ArrowLeft, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, AlignmentType, HeadingLevel, LevelFormat } from "docx";
@@ -56,7 +56,7 @@ _style.textContent = `
 
   /* ── Metric cards ── */
   .rq-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
-  .rq-metric{background:#1b2530;border-radius:6px;padding:12px 14px;border:1px solid rgba(255,255,255,0.07)}
+  .rq-metric{background:#1b2530;border-radius:6px;padding:12px 14px;border:1px solid rgba(255,255,255,0.07);text-align:center}
   .rq-metric-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#607a8a;margin-bottom:4px}
   .rq-metric-val{font-size:22px;font-weight:500;color:#d8eaf2}
   .rq-metric-sub{font-size:10px;color:#5DCAA5;margin-top:2px}
@@ -793,7 +793,7 @@ export default function RequirementsAgent() {
   const [marketBusy, setMarketBusy] = useState(false);
   const [marketErr, setMarketErr] = useState("");
 
-  const allAnswered = FIVE_WS.every(w => answers[w.key].trim().length > 0);
+  const allAnswered = (answers.freeform || "").trim().length > 20 || FIVE_WS.every(w => answers[w.key].trim().length > 0);
   const isSkipped = (val) => val.trim().toLowerCase() === "skip";
   const allFlagResponsesFilled = scopeFlags.every((_, idx) => (flagResponses[idx] || "").trim().length > 0);
 
@@ -820,7 +820,7 @@ export default function RequirementsAgent() {
   const resetSession = () => {
     setSessionId(genId());
     setProjectTitle("");
-    setAnswers({ who: "", what: "", where: "", when: "", why: "" });
+    setAnswers({ who: "", what: "", where: "", when: "", why: "", freeform: "" });
     setFormalScope("");
     setScopeFlags([]);
     setFlagResponses({});
@@ -908,7 +908,7 @@ export default function RequirementsAgent() {
   const doGenerateScope = async () => {
     setScopeBusy(true); setScopeErr(""); setScopeFlags([]); setScopeApproved(false);
     try {
-      const userMsg = FIVE_WS.map(w => `${w.label.toUpperCase()}: ${answers[w.key]}`).join("\n");
+      const userMsg = answers.freeform || FIVE_WS.map(w => answers[w.key]).filter(Boolean).join("\n");
       const scope = await callClaude(P_SCOPE_GENERATE, userMsg);
       setFormalScope(scope.trim());
       await doEvaluateScope(scope.trim());
@@ -1174,23 +1174,30 @@ export default function RequirementsAgent() {
     <div className="rq-sidebar">
       <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
         <div className="rq-sidebar-brand">BuyRight</div>
-        <div className="rq-sidebar-title">BuyRight</div>
-        <div className="rq-sidebar-session">{sessionId}</div>
       </div>
       <div className="rq-nav">
-        {NAV_VIEWS.map((v, i) => (
-          <div key={v}
-            className={`rq-nav-item ${view === v ? "active" : ""}`}
-            onClick={() => setView(v)}
-          >
-            <div className="rq-nav-num">{i + 1}</div>
-            {NAV_LABELS[i]}
-          </div>
-        ))}
-        <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
-        <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => setView("sessions")}>
-          <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Drafts
-        </div>
+        {NAV_VIEWS.map((v, i) => {
+          const isScope = v === "scope";
+          const locked = !formalScope && !isScope;
+          if (locked) return null;
+          return (
+            <div key={v}
+              className={`rq-nav-item ${view === v ? "active" : ""}`}
+              onClick={() => setView(v)}
+            >
+              <div className="rq-nav-num">{i + 1}</div>
+              {NAV_LABELS[i]}
+            </div>
+          );
+        })}
+        {formalScope && (
+          <>
+            <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
+            <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => setView("sessions")}>
+              <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Drafts
+            </div>
+          </>
+        )}
       </div>
       <div className="rq-sidebar-footer">
         <button className="rq-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => setView("splash")}>
@@ -1365,22 +1372,12 @@ export default function RequirementsAgent() {
                             {/* Search links — consistent across all cards */}
                             {(() => {
                               const q = encodeURIComponent(v.name.split(" — ").pop());
-                              const allLinks = [
-                                { key: "g2", label: "G2", url: v.g2Url || `https://www.g2.com/search#q=${q}&segment=all` },
-                                { key: "capterra", label: "Capterra", url: `https://www.capterra.com/search/#q=${q}` },
-                                { key: "sourceforge", label: "SourceForge", url: `https://sourceforge.net/software/search/?q=${q}` },
-                                { key: "goodfirms", label: "GoodFirms", url: `https://www.goodfirms.co/software/search?q=${q}` },
-                                { key: "reddit", label: "Reddit", url: `https://www.reddit.com/search/?q=${encodeURIComponent(v.name.split(" — ").pop() + " review")}&type=link&sort=relevance` },
-                              ];
-                              const platforms = v.reviewPlatforms || ["g2"];
-                              const links = allLinks.filter(l => platforms.includes(l.key));
+                              const g2Link = v.g2Url || `https://www.g2.com/search#q=${q}&segment=all`;
                               return (
                                 <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                                  {links.map(l => (
-                                    <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                                      <button className="vendor-btn vendor-btn-g2" style={{ padding: "2px 6px", fontSize: 9 }}>{l.label} ↗</button>
-                                    </a>
-                                  ))}
+                                  <a href={g2Link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                                    <button className="vendor-btn vendor-btn-g2" style={{ padding: "2px 6px", fontSize: 9 }}>G2 ↗</button>
+                                  </a>
                                 </div>
                               );
                             })()}
@@ -1440,15 +1437,17 @@ export default function RequirementsAgent() {
             {view === "scope" && (
               <div className="rq-fade">
                 <div className="rq-section-label" style={{ marginBottom: 6 }}>Project title</div>
-                <input className="rq-input" style={{ marginBottom: 22 }} placeholder="e.g. Enterprise Tool Tracking System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
-                <div className="rq-section-label" style={{ marginBottom: 14 }}>Project intake</div>
-                {FIVE_WS.map(w => (
-                  <div className="rq-5w-card" key={w.key}>
-                    <div className="rq-5w-label">{w.label}</div>
-                    <div className="rq-5w-question">{w.question}</div>
-                    <textarea key={`ta-${w.key}`} name={w.key} className="rq-textarea" placeholder={w.placeholder} value={answers[w.key]} onChange={e => { const k = w.key, v = e.target.value; setAnswers(p => ({ ...p, [k]: v })); }} rows={2} />
-                  </div>
-                ))}
+                <input className="rq-input" style={{ marginBottom: 22 }} placeholder="e.g. Enterprise HR Management System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
+                <div className="rq-section-label" style={{ marginBottom: 8 }}>What business problem are you trying to solve?</div>
+                <p className="rq-hint" style={{ marginBottom: 12 }}>Describe what you need in your own words — the system, the problem, who will use it, any deadlines or constraints, and what's out of scope. The more context you provide, the better the scope.</p>
+                <textarea
+                  className="rq-textarea"
+                  placeholder="e.g. Our HR team manages payroll, benefits, and employee records across three legacy systems that don't talk to each other. We need a single platform to consolidate these by end of 2026. Recruiting and performance management are out of scope..."
+                  value={answers.who ? FIVE_WS.map(w => answers[w.key]).filter(Boolean).join(" ") : (answers.freeform || "")}
+                  onChange={e => setAnswers(p => ({ ...p, freeform: e.target.value }))}
+                  rows={6}
+                  style={{ marginBottom: 8 }}
+                />
                 {scopeErr && <div className="rq-error">{scopeErr}</div>}
                 {formalScope && (
                   <div style={{ marginTop: 20 }} className="rq-fade">
