@@ -1024,16 +1024,16 @@ export default function RequirementsAgent() {
   };
 
   const pct = (step / 3) * 100;
-  const NAV_VIEWS = ["scope", "requirements", "questions", "market", "timeline", "review"];
-  const NAV_LABELS = ["Scope", "Requirements", "Questions", "Market", "Timeline", "Review"];
+  const NAV_VIEWS = ["scope", "requirements", "questions", "market", "timeline", "summary"];
+  const NAV_LABELS = ["Scope", "Requirements", "Questions", "Market", "Timeline", "Summary"];
   const answeredReqs = Object.keys(questions).length;
   const openQ = Object.values(questions).flat().filter(q => q.type === "open_ended").length;
   const mcQ = Object.values(questions).flat().filter(q => q.type === "multiple_choice").length;
 
   const topbarTitles = {
-    splash: "Home", sessions: "Sessions",
+    splash: "Home", sessions: "Drafts",
     scope: "Scope", requirements: "Requirements", questions: "Questions",
-    market: "Market Research", timeline: "Timeline", review: "Review",
+    market: "Market Research", timeline: "Timeline", summary: "Summary",
   };
   const topbarSubs = {
     splash: "RFP Agent", sessions: "All drafts",
@@ -1042,7 +1042,7 @@ export default function RequirementsAgent() {
     questions: projectTitle || "Untitled project",
     market: (projectTitle || "Untitled project") + " · Vendor identification",
     timeline: projectTitle || "Untitled project",
-    review: (projectTitle || "Untitled project") + " · Executive snapshot",
+    summary: (projectTitle || "Untitled project") + " · Executive snapshot",
   };
 
   // ── Splash ──
@@ -1107,7 +1107,7 @@ export default function RequirementsAgent() {
         ))}
         <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "10px 0" }} />
         <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => setView("sessions")}>
-          <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Sessions
+          <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Drafts
         </div>
       </div>
       <div className="rq-sidebar-footer">
@@ -1451,7 +1451,7 @@ export default function RequirementsAgent() {
                 )}
                 {!reqsBusy && requirements.length > 0 && (
                   <div className="rq-actions" style={{ marginTop: 22 }}>
-                    <button className="rq-btn-primary" onClick={() => setView("questions")}>Continue to questions <ChevronRight size={13} /></button>
+                    <button className="rq-btn-primary" onClick={() => { setView("questions"); doGenerateQuestions(); }}>Continue to questions <ChevronRight size={13} /></button>
                   </div>
                 )}
               </div>
@@ -1498,7 +1498,7 @@ export default function RequirementsAgent() {
             )}
 
             {/* ── Review ── */}
-            {view === "review" && (
+            {view === "summary" && (
               <div className="rq-fade">
 
                 {/* Summary tiles */}
@@ -1522,8 +1522,10 @@ export default function RequirementsAgent() {
                   </div>
                   <div className="rq-metric">
                     <div className="rq-metric-label">Timeline</div>
-                    <div className="rq-metric-val">{activities.length}</div>
-                    <div className="rq-metric-sub">{rfpStart && goLive ? `${calDaysBetween(rfpStart, goLive)}d total` : "activities"}</div>
+                    <div className="rq-metric-val" style={{ color: "#5DCAA5" }}>
+                      {rfpStart && goLive ? Math.round(calDaysBetween(rfpStart, goLive) / 7) : "—"}
+                    </div>
+                    <div className="rq-metric-sub">{rfpStart && goLive ? "weeks start to go-live" : "set dates in timeline"}</div>
                   </div>
                 </div>
 
@@ -1535,19 +1537,57 @@ export default function RequirementsAgent() {
                 }
                 <hr className="rq-divider" />
 
-                {/* Requirements */}
-                <div className="rq-section-label">Functional requirements ({requirements.length})</div>
-                {requirements.length > 0 ? (
+                {/* Timeline summary */}
+                <div className="rq-section-label">Procurement timeline</div>
+                {rfpStart && goLive ? (
                   <div style={{ marginBottom: 24 }}>
-                    {requirements.map(req => (
-                      <div className="rq-card" key={req.id} style={{ cursor: "default" }}>
-                        <div className="rq-req-id">{req.id}</div>
-                        <div className="rq-req-text">{req.text}</div>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+                      <div style={{ background: "#1b2530", border: "1px solid rgba(93,202,165,0.2)", borderRadius: 8, padding: "12px 18px", flex: 1, minWidth: 140 }}>
+                        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#5DCAA5", marginBottom: 4 }}>RFP Start</div>
+                        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: "#d8eaf2" }}>{new Date(rfpStart + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
                       </div>
-                    ))}
+                      <div style={{ background: "#1b2530", border: "1px solid rgba(239,159,39,0.2)", borderRadius: 8, padding: "12px 18px", flex: 1, minWidth: 140 }}>
+                        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#EF9F27", marginBottom: 4 }}>Go-Live</div>
+                        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: "#d8eaf2" }}>{new Date(goLive + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                      </div>
+                      <div style={{ background: "#1b2530", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "12px 18px", flex: 1, minWidth: 140 }}>
+                        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#607a8a", marginBottom: 4 }}>Total Duration</div>
+                        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: "#d8eaf2" }}>{Math.round(calDaysBetween(rfpStart, goLive) / 7)} weeks</div>
+                      </div>
+                    </div>
+                    {GROUPS.map(g => {
+                      const gas = activities.filter(a => a.group === g);
+                      if (!gas.length) return null;
+                      const groupColor = GROUP_COLORS[g];
+                      return (
+                        <div key={g} style={{ marginBottom: 16 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: groupColor, flexShrink: 0 }} />
+                            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: groupColor }}>{g}</div>
+                            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, color: "#3a5060" }}>— {gas.length} activities</div>
+                          </div>
+                          {gas.map(a => (
+                            <div key={a.id} style={{ display: "flex", alignItems: "baseline", gap: 10, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                              <div style={{ fontFamily: "'Lora',serif", fontSize: 13, color: "#d8eaf2", flex: 1, paddingLeft: a.parentId ? 20 : 0, fontStyle: a.parentId ? "italic" : "normal" }}>{a.name}</div>
+                              {a.startDate && a.endDate ? (
+                                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#607a8a", flexShrink: 0 }}>
+                                  {new Date(a.startDate + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric" })} – {new Date(a.endDate + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                  <span style={{ color: "#3a5060", marginLeft: 8 }}>{calDaysBetween(a.startDate, a.endDate)}d</span>
+                                </div>
+                              ) : (
+                                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#3a5060" }}>no dates set</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    <GanttChart activities={activities} />
                   </div>
                 ) : (
-                  <div style={{ color: "#3a5060", fontStyle: "italic", fontSize: 13, marginBottom: 24 }}>No requirements yet.</div>
+                  <div style={{ color: "#3a5060", fontStyle: "italic", fontSize: 13, marginBottom: 24 }}>
+                    No dates set — go to Timeline to configure your schedule.
+                  </div>
                 )}
                 <hr className="rq-divider" />
 
@@ -1590,12 +1630,6 @@ export default function RequirementsAgent() {
                     })}
                   </div>
                 )}
-                <hr className="rq-divider" />
-
-                {/* Gantt */}
-                <div className="rq-section-label">Procurement timeline</div>
-                <GanttChart activities={activities} />
-
                 <hr className="rq-divider" />
 
                 {/* Export */}
