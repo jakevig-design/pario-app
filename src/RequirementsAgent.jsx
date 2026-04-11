@@ -1121,8 +1121,8 @@ export default function RequirementsAgent() {
   const sidebarNav = (
     <div className="rq-sidebar">
       <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
-        <div className="rq-sidebar-brand">RFxBOT</div>
-        <div className="rq-sidebar-title">Agent</div>
+        <div className="rq-sidebar-brand">RFx</div>
+        <div className="rq-sidebar-title">BOTt</div>
         <div className="rq-sidebar-session">{sessionId}</div>
       </div>
       <div className="rq-nav">
