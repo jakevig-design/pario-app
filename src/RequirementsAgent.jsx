@@ -543,34 +543,7 @@ RULES:
 Return ONLY valid JSON, no markdown:
 [{"type":"open_ended","text":"..."},{"type":"multiple_choice","text":"...","options":["A","B","C"]}]`;
 
-const P_MARKET = `You are a procurement analyst conducting vendor market research. Your only job is to return a JSON array of vendors. You must never editorialize, explain, warn, or provide context — only JSON.
-
-Use web search to identify 5-8 software vendors relevant to the project scope and requirements provided.
-
-CRITICAL OUTPUT RULES:
-- Your entire response must be a single JSON array
-- Start with [ and end with ]
-- No text before or after the array
-- No markdown, no code fences, no explanation
-- Keep descriptions to one short sentence — do not pad responses
-- If you have notes or caveats, put them inside the "description" field — never outside the JSON
-
-Each vendor object must have exactly these fields:
-{
-  "name": "Vendor Name",
-  "category": "Software category (e.g. ITAM, ERP, HRIS)",
-  "g2Rating": "4.5/5 or N/A",
-  "g2ReviewCount": "1,200 reviews or N/A",
-  "description": "One short sentence on what this vendor does.",
-  "requirementsMatch": 4,
-  "requirementsTotal": 6,
-  "matchConfidence": "high",
-  "g2Url": "https://www.g2.com/products/... or null"
-}
-
-requirementsMatch: your estimate of how many of the provided requirements this vendor meets.
-matchConfidence: high, medium, or low.
-The response must be parseable by JSON.parse() with zero preprocessing.`;
+const P_MARKET = `You are a procurement analyst. Given a project scope and functional requirements, research relevant software vendors and return your findings as vendor descriptions. Focus on vendors that are realistic fits for the described need. For each vendor note their name, category, G2 rating if available, review count, a brief description, and G2 URL.`;
 const FIVE_WS = [
   { key: "who", label: "Who", question: "Who will use this system, and who owns this initiative?", placeholder: "e.g. Shop floor technicians will use it daily. The VP of Operations is the project sponsor." },
   { key: "what", label: "What", question: "What problem are you solving, or what capability are you adding?", placeholder: "e.g. We lose track of tools constantly. We need real-time visibility into tool location and condition." },
