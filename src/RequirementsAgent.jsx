@@ -210,19 +210,19 @@ document.head.appendChild(_style);
 const genId = () => "SES-" + Math.random().toString(36).substring(2, 9).toUpperCase();
 const uid = () => "a" + Date.now() + Math.random().toString(36).substring(2, 5);
 
-async function callClaude(system, user, useWebSearch = false) {
-  const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system, user, useWebSearch }) });
+async function callClaude(system, user, useWebSearch = false, model = null) {
+  const body = { system, user, useWebSearch };
+  if (model) body.model = model;
+  const res = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const d = await res.json();
   if (!res.ok || d.error) throw new Error(`API ${res.status}: ${d.error?.type || ""} — ${d.error?.message || JSON.stringify(d)}`);
   return d.content?.filter(b => b.type === "text").map(b => b.text).join("") ?? "";
 }
 
-async function callJSON(system, user, useWebSearch = false) {
-  const t = await callClaude(system, user, useWebSearch);
-  // Try extracting from ```json ... ``` fence first
+async function callJSON(system, user, useWebSearch = false, model = null) {
+  const t = await callClaude(system, user, useWebSearch, model);
   const fenceMatch = t.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidate = fenceMatch ? fenceMatch[1].trim() : t;
-  // Then find first complete JSON array or object
   const arrMatch = candidate.match(/\[[\s\S]*\]/);
   const objMatch = candidate.match(/\{[\s\S]*\}/);
   const jsonStr = (arrMatch ? arrMatch[0] : objMatch ? objMatch[0] : candidate).trim();
@@ -1056,7 +1056,7 @@ export default function RequirementsAgent() {
         ? `\n\nFunctional requirements (${requirements.length} total):\n${requirements.map(r => r.text).join("\n")}`
         : "";
       const userMsg = `Project scope:\n${formalScope}${reqList}`;
-      const result = await callJSON(P_MARKET, userMsg, false);
+      const result = await callJSON(P_MARKET, userMsg, false, "claude-haiku-4-5-20251001");
       setVendors(result);
       setVendorStatus({});
     } catch (e) {
