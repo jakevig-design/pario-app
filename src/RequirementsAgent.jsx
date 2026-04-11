@@ -893,6 +893,7 @@ export default function RequirementsAgent() {
     if (d.answers) setAnswers(d.answers);
     if (d.formalScope) setFormalScope(d.formalScope);
     if (d.scopeApproved) setScopeApproved(d.scopeApproved);
+    setEditingScope(false);
     if (d.requirements) setRequirements(d.requirements);
     if (d.questions) setQuestions(d.questions);
     if (d.rfpStart) setRfpStart(d.rfpStart);
@@ -1278,13 +1279,15 @@ Return ONLY valid JSON, no markdown, no explanation:
             <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => setView("sessions")}>
               <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Drafts
             </div>
+            <div className="rq-nav-item" onClick={() => { resetSession(); }}>
+              <div className="rq-nav-num"><Plus size={9} /></div>New session
+            </div>
           </>
         )}
-      </div>
-      <div className="rq-sidebar-footer">
-        <button className="rq-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => setView("splash")}>
-          <ArrowLeft size={12} /> Home
-        </button>
+        <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "10px 0" }} />
+        <div className="rq-nav-item" onClick={() => setView("splash")}>
+          <div className="rq-nav-num"><ArrowLeft size={9} /></div>Home
+        </div>
       </div>
     </div>
   );
@@ -1321,9 +1324,8 @@ Return ONLY valid JSON, no markdown, no explanation:
             {/* ── Drafts ── */}
             {view === "sessions" && (
               <div className="rq-fade">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div style={{ marginBottom: 20 }}>
                   <div className="rq-section-label" style={{ marginBottom: 0 }}>{sessionsList.length} session{sessionsList.length !== 1 ? "s" : ""}</div>
-                  <button className="rq-btn-primary" onClick={resetSession}><Plus size={13} /> New session</button>
                 </div>
                 {sessionsLoading && <div className="rq-loading-center"><Loader size={18} className="spin" /></div>}
                 {!sessionsLoading && sessionsList.length === 0 && (
@@ -1417,8 +1419,12 @@ Return ONLY valid JSON, no markdown, no explanation:
               <div className="rq-fade">
                 {!formalScope || !scopeApproved ? (
                   <div style={{ textAlign: "center", padding: "48px 0" }}>
-                    <div style={{ color: "#6B7280", fontSize: 14, fontStyle: "italic", marginBottom: 16 }}>Complete and approve the project scope first.</div>
-                    <button className="rq-btn-primary" onClick={() => { setView("scope"); }}>Go to Scope <ChevronRight size={13} /></button>
+                    <div style={{ color: "#6B7280", fontSize: 14, fontStyle: "italic", marginBottom: 16 }}>
+                      {!formalScope ? "Start by completing your project scope." : "Your scope isn't finished yet — complete the remaining steps on the Scope page."}
+                    </div>
+                    <button className="rq-btn-primary" onClick={() => setView("scope")}>
+                      {!formalScope ? <>Start scope <ChevronRight size={13} /></> : <>Complete scope <ChevronRight size={13} /></>}
+                    </button>
                   </div>
                 ) : (
                   <>
@@ -1551,7 +1557,7 @@ Return ONLY valid JSON, no markdown, no explanation:
                     <div style={{ background: "#FFF7ED", border: "1px solid rgba(194,65,12,0.2)", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 12 }} className="rq-fade">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                         <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 700, color: "#C2410C" }}>{p.name}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "#9CA3AF" }}>agent est. · verify before use</div>
+                        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "#9CA3AF" }}>agent est. - verify before use</div>
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
                         {p.vertical && <span style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 3, padding: "2px 8px", fontSize: 10, color: "#374151" }}>{p.vertical}</span>}
@@ -1583,7 +1589,10 @@ Return ONLY valid JSON, no markdown, no explanation:
                     {editingScope ? (
                       <>
                         <textarea className="rq-textarea" value={formalScope} onChange={e => setFormalScope(e.target.value)} rows={5} style={{ marginBottom: 10 }} />
-                        <div className="rq-actions"><button className="rq-btn-ghost" onClick={async () => { setEditingScope(false); await doEvaluateScope(formalScope); }}><Check size={12} /> Done editing</button></div>
+                        <div className="rq-actions">
+                          <button className="rq-btn-ghost" onClick={async () => { setEditingScope(false); setScopeApproved(false); setScopeFlags([]); setExpertQuestions([]); await doEvaluateScope(formalScope); }}><Check size={12} /> Done editing</button>
+                          <button className="rq-btn-ghost" onClick={() => setEditingScope(false)}>Cancel</button>
+                        </div>
                       </>
                     ) : (
                       <>
