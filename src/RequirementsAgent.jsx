@@ -1480,8 +1480,11 @@ export default function RequirementsAgent() {
                   </div>
                 )}
                 {!reqsBusy && requirements.length > 0 && (
-                  <div className="rq-actions" style={{ marginTop: 22 }}>
-                    <button className="rq-btn-primary" onClick={() => { setView("questions"); doGenerateQuestions(); }}>Generate questions <ChevronRight size={13} /></button>
+                  <div style={{ marginTop: 22 }} className="rq-fade">
+                    <div className="rq-scope-approved"><CheckCircle size={15} /> Requirements ready — {requirements.length} binary requirement{requirements.length !== 1 ? "s" : ""} defined</div>
+                    <div className="rq-actions">
+                      <button className="rq-btn-primary" onClick={() => { setView("questions"); doGenerateQuestions(); }}>Generate questions <ChevronRight size={13} /></button>
+                    </div>
                   </div>
                 )}
               </div>
