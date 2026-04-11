@@ -869,7 +869,12 @@ export default function RequirementsAgent() {
     if (d.goLive) setGoLive(d.goLive);
     // Only restore activities if they have the new group structure
     if (d.activities && d.activities.length > 0 && d.activities[0].group) {
-      setActivities(d.activities);
+      // Migrate old Pre-RFP/RFP/Post-RFP group names to Pre-RFx/RFx/Post-RFx
+      const migrated = d.activities.map(a => ({
+        ...a,
+        group: a.group === "Pre-RFP" ? "Pre-RFx" : a.group === "RFP" ? "RFx" : a.group === "Post-RFP" ? "Post-RFx" : a.group
+      }));
+      setActivities(migrated);
     } else {
       setActivities(makeDefaultActivities(d.rfpStart || today()));
     }
