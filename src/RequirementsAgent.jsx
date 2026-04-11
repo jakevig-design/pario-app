@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+aimport { useState, useRef, useEffect } from "react";
 import { FileText, Plus, Trash2, Loader, ChevronRight, CheckCircle, Pencil, X, Check, RefreshCw, AlertTriangle, Calendar, Save, Clock, ArrowLeft, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, AlignmentType, HeadingLevel, LevelFormat } from "docx";
@@ -614,6 +614,7 @@ OUTPUT: Respond with ONLY a valid JSON array. Start with [ and end with ]. No te
     "requirementsMatch": 4,
     "requirementsTotal": 6,
     "matchConfidence": "high",
+    "reviewPlatforms": ["g2", "capterra", "sourceforge", "goodfirms", "reddit"] (include only platforms where this vendor actually has a listing or active discussion — omit platforms where a search would return nothing),
     "g2Url": "https://www.g2.com/products/vendor-name or null"
   }
 ]`;
@@ -1364,13 +1365,15 @@ export default function RequirementsAgent() {
                             {/* Search links — consistent across all cards */}
                             {(() => {
                               const q = encodeURIComponent(v.name.split(" — ").pop());
-                              const links = [
-                                { label: "G2", url: v.g2Url || `https://www.g2.com/search#q=${q}&segment=all` },
-                                { label: "Capterra", url: `https://www.capterra.com/search/#q=${q}` },
-                                { label: "SourceForge", url: `https://sourceforge.net/software/search/?q=${q}` },
-                                { label: "GoodFirms", url: `https://www.goodfirms.co/software/search?q=${q}` },
-                                { label: "Reddit", url: `https://www.reddit.com/search/?q=${q}+software+review&sort=relevance` },
+                              const allLinks = [
+                                { key: "g2", label: "G2", url: v.g2Url || `https://www.g2.com/search#q=${q}&segment=all` },
+                                { key: "capterra", label: "Capterra", url: `https://www.capterra.com/search/#q=${q}` },
+                                { key: "sourceforge", label: "SourceForge", url: `https://sourceforge.net/software/search/?q=${q}` },
+                                { key: "goodfirms", label: "GoodFirms", url: `https://www.goodfirms.co/software/search?q=${q}` },
+                                { key: "reddit", label: "Reddit", url: `https://www.reddit.com/search/?q=${encodeURIComponent(v.name.split(" — ").pop() + " review")}&type=link&sort=relevance` },
                               ];
+                              const platforms = v.reviewPlatforms || ["g2"];
+                              const links = allLinks.filter(l => platforms.includes(l.key));
                               return (
                                 <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                                   {links.map(l => (
