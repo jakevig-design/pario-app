@@ -1,7 +1,6 @@
 // src/supabase.js
 // ─────────────────────────────────────────────────────────────
-// Supabase client — drop this into src/ alongside your
-// RequirementsAgent.jsx. Reads credentials from Vite env vars.
+// Supabase client with auth + multi-tenant support.
 // ─────────────────────────────────────────────────────────────
 import { createClient } from '@supabase/supabase-js';
 
@@ -14,10 +13,80 @@ if (!url || !key) {
 
 export const supabase = (url && key) ? createClient(url, key) : null;
 
+// ─── Auth ─────────────────────────────────────────────────────
+
+export async function signIn(email, password) {
+  if (!supabase) return { error: { message: 'Supabase not configured' } };
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  return { data, error };
+}
+
+export async function signUp(email, password) {
+  if (!supabase) return { error: { message: 'Supabase not configured' } };
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  return { data, error };
+}
+
+export async function signOut() {
+  if (!supabase) return;
+  await supabase.auth.signOut();
+}
+
+export async function getSession() {
+  if (!supabase) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+}
+
+export function onAuthStateChange(callback) {
+  if (!supabase) return () => {};
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(callback);
+  return () => subscription.unsubscribe();
+}
+
+// ─── User & tenant profile ────────────────────────────────────
+
+export async function loadUserProfile() {
+  if (!supabase) return null;
+  const session = await getSession();
+  if (!session) return null;
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*, tenant_config(*)')
+    .eq('user_id', session.user.id)
+    .single();
+  if (error) { console.error('Profile load error:', error); return null; }
+  return data;
+}
+
+export async function saveUserProfile({ name, title, role }) {
+  if (!supabase) return null;
+  const session = await getSession();
+  if (!session) return null;
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ name, title, role, updated_at: new Date().toISOString() })
+    .eq('user_id', session.user.id);
+  if (error) console.error('Profile save error:', error);
+  return !error;
+}
+
 // ─── Session helpers ──────────────────────────────────────────
 
 export async function saveSession({ id, projectTitle, status, data }) {
   if (!supabase) return null;
+  const session = await getSession();
+  let tenantId = null;
+  let userId = null;
+  if (session) {
+    userId = session.user.id;
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('tenant_id')
+      .eq('user_id', userId)
+      .single();
+    tenantId = profile?.tenant_id || null;
+  }
   const { error } = await supabase
     .from('procurement_sessions')
     .upsert({
@@ -25,6 +94,8 @@ export async function saveSession({ id, projectTitle, status, data }) {
       project_title: projectTitle || 'Untitled',
       status,
       data,
+      tenant_id: tenantId,
+      user_id: userId,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'id' });
   if (error) console.error('Supabase save error:', error);
