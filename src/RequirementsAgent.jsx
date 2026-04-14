@@ -528,7 +528,8 @@ The user has answered the following 5 intake questions. Use their answers to wri
 SCOPE QUALITY RULES — the scope MUST:
 1. Be specific — include concrete details about deadlines, milestones, or deliverables where the user provided them
 2. Include exclusions — explicitly state what is out of scope to prevent scope creep
-3. Use plain language — no jargon, no acronyms without explanation
+3. Use plain language — correct any typos or grammatical errors from the user's input, and define any technical terms, product names, acronyms, or internal system names on first use (e.g. "the existing HRIS platform (Workday)")
+4. Be clean and professional — the output will be used directly in a business case or procurement document
 
 Return ONLY the scope text. No preamble, no explanation.`;
 
@@ -537,7 +538,7 @@ const P_SCOPE_EVALUATE = `You are a senior business analyst reviewing a project 
 Evaluate the scope against these criteria:
 1. SPECIFICITY — Does the scope clearly explain why this project is being done? What is the business driver or problem being solved?
 2. EXCLUSIONS — Does it explicitly state what is out of scope?
-3. PLAIN LANGUAGE — Is it free of unexplained jargon or acronyms?
+3. PLAIN LANGUAGE — Are all technical terms, product names, acronyms, and internal system names explained or defined on first use? Flag any unexplained jargon, abbreviations, or system names a reader outside the organization would not recognize.
 4. COMPLETENESS — Does it address all three of the following:
    - What will be done
    - When and how it will be done, and potentially by whom
