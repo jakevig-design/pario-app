@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { FileText, Plus, Trash2, Loader, ChevronRight, CheckCircle, Pencil, X, Check, RefreshCw, AlertTriangle, Calendar, Save, Clock, ArrowLeft, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, AlignmentType, HeadingLevel, LevelFormat } from "docx";
-import { saveSession, loadSessions, loadSession, deleteSession } from "./supabase";
+import { saveSession, loadSessions, loadSession, deleteSession, signIn, signUp, signOut, getSession, onAuthStateChange, loadUserProfile } from "./supabase";
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 const _link = document.createElement("link");
@@ -521,16 +521,31 @@ function GanttChart({ activities }) {
 }
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
-const P_SCOPE_GENERATE = `You are a professional business analyst writing a project scope for a software procurement document.
+const P_SCOPE_BULLETS = `You are a senior business analyst. Given a free-form description of a business problem and software need, extract the key points as a structured bullet list.
 
-The user has answered the following 5 intake questions. Use their answers to write a formal scope narrative.
+Each bullet should be a single, clear, factual statement. Aim for 6-10 bullets that capture:
+- The business problem and who it affects
+- What the solution needs to do
+- Key constraints (timeline, integrations, budget signals)
+- What is explicitly out of scope
+- Any relevant context (company size, regulatory requirements, existing systems)
+
+Correct any typos or grammatical errors. Define any acronyms or internal system names on first use.
+
+Return ONLY a JSON array of strings. No markdown, no preamble, no explanation:
+["The current payroll system...", "The solution must integrate with...", ...]`;
+
+const P_SCOPE_GENERATE = `You are a professional business analyst writing a formal project scope for a software vendor or procurement document.
+
+Given a list of approved scope bullet points and company context, write a formal scope narrative.
 
 SCOPE QUALITY RULES — the scope MUST:
-1. Be specific — include concrete details about deadlines, milestones, or deliverables where the user provided them
+1. Be specific — include concrete details about deadlines, milestones, or deliverables where provided
 2. Include exclusions — explicitly state what is out of scope to prevent scope creep
-3. Use plain language — correct any typos or grammatical errors from the user's input, and define any technical terms, product names, acronyms, or internal system names on first use (e.g. "the existing HRIS platform (Workday)")
-4. Address integration compatibility — when the scope references integration with existing tools or systems, name those tools specifically and note whether open or proprietary file formats and standards are required (e.g. "must support open formats such as STEP and IGES, not vendor-proprietary formats")
-5. Be clean and professional — the output will be used directly in a business case or procurement document
+3. Use plain language — define any technical terms, product names, acronyms, or internal system names on first use
+4. Address integration compatibility — when referencing integrations, name the specific tools and note whether open or proprietary formats are required
+5. Include relevant company context (industry, size, regulatory environment) where it affects vendor selection
+6. Be clean and professional — this will be shared with vendors
 
 Return ONLY the scope text. No preamble, no explanation.`;
 
@@ -656,22 +671,20 @@ OUTPUT: Respond with ONLY a valid JSON array. Start with [ and end with ]. No te
   }
 ]`;
 
-const P_NARRATIVE = `You are a senior business analyst writing an executive business case narrative.
+const P_NARRATIVE = `You are a senior business analyst writing an internal executive business case narrative.
 
-Given a project scope, functional requirements, and vendor discovery questions, write a concise business case narrative. This will be used by a category manager to build a business case for software investment.
+Given approved scope bullet points, timeline data, and vendor shortlist intelligence, write a concise business case narrative of exactly 3 short paragraphs for internal stakeholder alignment and executive presentation.
 
-Structure:
-1. Problem & context — what is broken, why it matters, who it affects, what it costs the business
-2. What success looks like — the capability being acquired, measurable outcomes, what is explicitly out of scope
-3. Requirements summary — the key functional capabilities the solution must deliver (draw from the requirements list)
-4. Investment rationale — why now, what risks exist if nothing changes, what the procurement process will determine
+Paragraph 1 — Problem & context: What is broken, why it matters, who it affects.
+Paragraph 2 — What success looks like: The capability being acquired, key outcomes, what is out of scope. Reference the timeline (start date, go-live) to show urgency and planning.
+Paragraph 3 — Investment rationale: Why now, risk of inaction, and what the market looks like (reference vendor count, pricing range from the shortlist to anchor the investment size).
 
 RULES:
-- Write in third person, professional but direct — not marketing language
-- Be specific about the business impact, not generic
+- Exactly 3 paragraphs, 2-4 sentences each
+- Third person, professional but direct — not marketing language
 - Do not name specific vendors
 - No headers, no bullets — flowing prose only
-- This should read like the opening section of a business case document`;
+- This is internal — include market intel and timeline, not vendor-facing content`;
 
 const FIVE_WS = [
   { key: "who", label: "Who", question: "Who will use this system, and who owns this initiative?", placeholder: "e.g. Shop floor technicians will use it daily. The VP of Operations is the project sponsor." },
@@ -799,6 +812,56 @@ async function buildDocx({ sessionId, projectTitle, formalScope, narrative, requ
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
+// ─── Login Screen ─────────────────────────────────────────────
+function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState("signin"); // signin | signup
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const handle = async () => {
+    if (!email.trim() || !password.trim()) { setErr("Email and password are required."); return; }
+    setBusy(true); setErr(""); setMsg("");
+    const fn = mode === "signup" ? signUp : signIn;
+    const { error } = await fn(email, password);
+    if (error) { setErr(error.message); setBusy(false); return; }
+    if (mode === "signup") setMsg("Check your email to confirm your account, then sign in.");
+    setBusy(false);
+  };
+
+  return (
+    <div className="rq-root" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: "100%", maxWidth: 400, padding: "0 24px" }}>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 8 }}>BuyRight · Acuity Sourcing</div>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 800, color: "#111827", marginBottom: 6 }}>
+          {mode === "signup" ? "Create your account" : "Welcome back"}
+        </div>
+        <div style={{ fontFamily: "'Lora',serif", fontSize: 13, color: "#6B7280", marginBottom: 28 }}>
+          {mode === "signup" ? "Start building better business cases." : "Sign in to continue."}
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#9CA3AF", marginBottom: 6 }}>Email</div>
+          <input className="rq-input" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handle()} />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#9CA3AF", marginBottom: 6 }}>Password</div>
+          <input className="rq-input" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handle()} />
+        </div>
+        {err && <div className="rq-error" style={{ marginBottom: 14 }}>{err}</div>}
+        {msg && <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 6, padding: "10px 14px", fontSize: 13, color: "#166534", marginBottom: 14 }}>{msg}</div>}
+        <button className="rq-btn-primary" style={{ width: "100%", justifyContent: "center", padding: "12px" }} onClick={handle} disabled={busy}>
+          {busy ? <><Loader size={13} className="spin" /> {mode === "signup" ? "Creating account…" : "Signing in…"}</> : mode === "signup" ? "Create account" : "Sign in"}
+        </button>
+        <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "#6B7280" }}>
+          {mode === "signin" ? <>No account? <button style={{ background: "none", border: "none", color: "#C2410C", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }} onClick={() => { setMode("signup"); setErr(""); setMsg(""); }}>Create one</button></> : <>Have an account? <button style={{ background: "none", border: "none", color: "#C2410C", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }} onClick={() => { setMode("signin"); setErr(""); setMsg(""); }}>Sign in</button></>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RequirementsAgent() {
   const [sessionId, setSessionId] = useState(genId);
   const [step, setStep] = useState(0);
@@ -809,6 +872,9 @@ export default function RequirementsAgent() {
   const [saveStatus, setSaveStatus] = useState("idle");
   const [lastSaved, setLastSaved] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState(null);
   const isDirty = useRef(false);
 
   // Scope
@@ -818,6 +884,9 @@ export default function RequirementsAgent() {
   const [narrative, setNarrative] = useState("");
   const [narrativeBusy, setNarrativeBusy] = useState(false);
   const [formalScope, setFormalScope] = useState("");
+  const [execSummary, setExecSummary] = useState("");
+  const [scopeBullets, setScopeBullets] = useState([]);
+  const [bulletsApproved, setBulletsApproved] = useState(false);
   const [scopeFlags, setScopeFlags] = useState([]);
   const [flagResponses, setFlagResponses] = useState({});
   const [scopeApproved, setScopeApproved] = useState(false);
@@ -872,6 +941,46 @@ export default function RequirementsAgent() {
     loadSessions().then(rows => { setSessionsList(rows); setSessionsLoading(false); });
   }, []);
 
+  // Auth + tenant config loading
+  useEffect(() => {
+    getSession().then(session => {
+      setAuthUser(session?.user || null);
+      setAuthLoading(false);
+      if (session?.user) {
+        loadUserProfile().then(profile => {
+          setUserProfile(profile);
+          // Inject tenant company config into answers.companyProfile
+          if (profile?.tenant_config) {
+            const tc = profile.tenant_config;
+            setAnswers(p => ({
+              ...p,
+              companyProfile: {
+                name: tc.company_name,
+                vertical: tc.vertical,
+                subVertical: tc.sub_vertical,
+                employeeCount: tc.employee_count,
+                hq: tc.hq,
+                publicPrivate: tc.public_private,
+                ticker: tc.ticker,
+                description: tc.description,
+                knownTechStack: tc.tech_stack || [],
+                regulatoryContext: tc.regulatory_context,
+              }
+            }));
+          }
+        });
+      }
+    });
+    const unsub = onAuthStateChange((event, session) => {
+      setAuthUser(session?.user || null);
+      if (!session) {
+        setUserProfile(null);
+        setAnswers(p => ({ ...p, companyProfile: null }));
+      }
+    });
+    return unsub;
+  }, []);
+
   const formalScopeRef = useRef(formalScope);
   useEffect(() => { formalScopeRef.current = formalScope; }, [formalScope]);
 
@@ -894,6 +1003,9 @@ export default function RequirementsAgent() {
     setNarrative("");
     setNarrativeBusy(false);
     setFormalScope("");
+    setExecSummary("");
+    setScopeBullets([]);
+    setBulletsApproved(false);
     setScopeFlags([]);
     setFlagResponses({});
     setScopeApproved(false);
@@ -917,7 +1029,7 @@ export default function RequirementsAgent() {
     setView("scope");
   };
 
-  const getSessionData = () => ({ step, projectTitle, answers, formalScope, scopeApproved, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus, narrative });
+  const getSessionData = () => ({ step, projectTitle, answers, formalScope, execSummary, scopeBullets, bulletsApproved, scopeApproved, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus, narrative });
 
   const doSave = async (status = "draft") => {
     setSaveStatus("saving");
@@ -935,6 +1047,9 @@ export default function RequirementsAgent() {
     if (d.projectTitle) setProjectTitle(d.projectTitle);
     if (d.answers) setAnswers(d.answers);
     if (d.formalScope) setFormalScope(d.formalScope);
+    if (d.execSummary) setExecSummary(d.execSummary);
+    if (d.scopeBullets) setScopeBullets(d.scopeBullets);
+    if (d.bulletsApproved) setBulletsApproved(d.bulletsApproved);
     if (d.scopeApproved) setScopeApproved(d.scopeApproved);
     setEditingScope(false);
     if (d.requirements) setRequirements(d.requirements);
@@ -961,9 +1076,17 @@ export default function RequirementsAgent() {
 
   const doDeleteSession = async (id, e) => {
     e.stopPropagation();
-    if (!window.confirm("Delete this session?")) return;
+    if (!window.confirm("Delete this project?")) return;
     await deleteSession(id);
     setSessionsList(p => p.filter(s => s.id !== id));
+  };
+
+  const doDeleteCurrentSession = async () => {
+    if (!window.confirm(`Delete "${projectTitle || "this project"}"? This cannot be undone.`)) return;
+    await deleteSession(sessionId);
+    setSessionsList(p => p.filter(s => s.id !== sessionId));
+    resetSession();
+    setView("sessions");
   };
 
   const handleRfpStartChange = (newStart) => {
@@ -979,6 +1102,17 @@ export default function RequirementsAgent() {
   const handleGoLiveChange = (newEnd) => {
     setGoLive(newEnd);
   };
+  const doExtractBullets = async () => {
+    setScopeBusy(true); setScopeErr(""); setScopeBullets([]); setBulletsApproved(false);
+    setFormalScope(""); setScopeApproved(false); setScopeFlags([]); setExpertQuestions([]);
+    try {
+      const input = answers.freeform || FIVE_WS.map(w => answers[w.key]).filter(Boolean).join("\n");
+      const result = await callJSON(P_SCOPE_BULLETS, input, false, "claude-haiku-4-5-20251001");
+      setScopeBullets(Array.isArray(result) ? result : []);
+    } catch { setScopeErr("Could not extract bullet points. Please try again."); }
+    finally { setScopeBusy(false); }
+  };
+
   const doGenerateScope = async () => {
     setScopeBusy(true); setScopeErr(""); setScopeFlags([]); setScopeApproved(false);
     try {
@@ -991,9 +1125,11 @@ export default function RequirementsAgent() {
         p.publicPrivate && `Type: ${p.publicPrivate}${p.ticker ? ` (${p.ticker})` : ""}`,
         p.knownTechStack?.length && `Known tech: ${p.knownTechStack.join(", ")}`,
         p.regulatoryContext && `Regulatory context: ${p.regulatoryContext}`,
-      ].filter(Boolean).join("\n") : (answers.companyName ? `Company: ${answers.companyName}` : "");
-      const problemCtx = answers.freeform || FIVE_WS.map(w => answers[w.key]).filter(Boolean).join("\n");
-      const userMsg = companyCtx ? `${companyCtx}\n\n${problemCtx}` : problemCtx;
+      ].filter(Boolean).join("\n") : "";
+      const bulletText = scopeBullets.length > 0
+        ? scopeBullets.map(b => `• ${b}`).join("\n")
+        : (answers.freeform || FIVE_WS.map(w => answers[w.key]).filter(Boolean).join("\n"));
+      const userMsg = companyCtx ? `${companyCtx}\n\nApproved scope bullets:\n${bulletText}` : `Scope bullets:\n${bulletText}`;
       const scope = await callClaude(P_SCOPE_GENERATE, userMsg);
       setFormalScope(scope.trim());
       await doEvaluateScope(scope.trim());
@@ -1240,16 +1376,21 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
   const doGenerateNarrative = async () => {
     setNarrativeBusy(true);
     try {
-      const p = answers.companyProfile;
-      const companyCtx = p ? `Company: ${p.name}${p.vertical ? `, ${p.vertical}` : ""}${p.employeeCount ? `, ${p.employeeCount} employees` : ""}` : (answers.companyName || "");
-      const reqList = requirements.length > 0
-        ? `\n\nFunctional requirements:\n${requirements.map(r => `- ${r.text}`).join("\n")}`
+      const bulletText = scopeBullets.length > 0
+        ? `Scope bullets:\n${scopeBullets.map(b => `• ${b}`).join("\n")}`
+        : `Scope:\n${formalScope}`;
+
+      const timelineCtx = rfpStart && goLive
+        ? `\n\nTimeline: Start ${new Date(rfpStart + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, Go-live ${new Date(goLive + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (${Math.round(calDaysBetween(rfpStart, goLive) / 7)} weeks)`
         : "";
-      const qList = Object.keys(questions).length > 0
-        ? `\n\nKey vendor discovery questions:\n${Object.values(questions).flat().slice(0, 8).map(q => `- ${q.text}`).join("\n")}`
-        : "";
-      const userMsg = `${companyCtx ? `${companyCtx}\n\n` : ""}Project scope:\n${formalScope}${reqList}${qList}`;
-      const result = await callClaude(P_NARRATIVE, userMsg, false, "claude-haiku-4-5-20251001");
+
+      const shortlisted = vendors.filter(v => vendorStatus[v.name] === "shortlisted");
+      const vendorCtx = vendors.length > 0 ? `\n\nVendor market: ${vendors.length} vendors identified${shortlisted.length > 0 ? `, ${shortlisted.length} shortlisted` : ""}. ${
+        vendors.filter(v => v.estimatedPrice && v.estimatedPrice !== "Contact for pricing").map(v => v.estimatedPrice).slice(0, 3).join(", ")
+      }${vendors.some(v => v.estimatedPrice) ? " estimated Year 1 cost range." : ""}` : "";
+
+      const userMsg = `${bulletText}${timelineCtx}${vendorCtx}`;
+      const result = await callClaude(P_NARRATIVE, userMsg, false, "claude-sonnet-4-5");
       setNarrative(result.trim());
     } catch { /* silent fail */ }
     finally { setNarrativeBusy(false); }
@@ -1291,6 +1432,20 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
     summary: (projectTitle || "Untitled project") + " ",
   };
 
+  // ── Auth loading ──
+  if (authLoading) {
+    return (
+      <div className="rq-root" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Loader size={24} className="spin" style={{ color: "#C2410C" }} />
+      </div>
+    );
+  }
+
+  // ── Login screen ──
+  if (!authUser) {
+    return <LoginScreen />;
+  }
+
   // ── Splash ──
   if (view === "splash") {
     return (
@@ -1299,7 +1454,6 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
           <div className="rq-sidebar">
             <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
               <div className="rq-sidebar-brand">BuyRight</div>
-              <div className="rq-sidebar-title">BuyRight</div>
             </div>
             <div className="rq-nav">
               <div className="rq-nav-item active"><div className="rq-nav-num" style={{ fontSize: 8 }}>⌂</div>Home</div>
@@ -1310,22 +1464,54 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
             <div className="rq-topbar">
               <div className="rq-topbar-left">
                 <div className="rq-topbar-title">Home</div>
-                <div className="rq-topbar-sub">BuyRight</div>
               </div>
             </div>
-            <div className="rq-content" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ textAlign: "center", maxWidth: 480 }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 12 }}>BuyRight</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: "#111827", marginBottom: 4, lineHeight: 1.15 }}>Don't Be Sold On Value.</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 36, fontWeight: 800, color: "#C2410C", marginBottom: 20, lineHeight: 1.15 }}>Buy Based On Needs.</div>
-                <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#6B7280", lineHeight: 1.7, marginBottom: 36 }}>Before you fill out their form, build your list. 15 minutes of prep buys you what you need, not what they want to sell.</div>
-                <button className="rq-btn-primary" style={{ padding: "14px 32px", fontSize: 13 }} onClick={resetSession}>
-                  <Plus size={15} /> Start new session
-                </button>
-                <div style={{ marginTop: 16 }}>
-                  <button className="rq-btn-ghost" onClick={() => setView("sessions")}>View projects</button>
+            <div className="rq-content" style={{ maxWidth: 720, margin: "0 auto", padding: "48px 32px" }}>
+
+              {/* Hero */}
+              <div style={{ marginBottom: 52 }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 14 }}>BuyRight · by Acuity Sourcing</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 38, fontWeight: 800, color: "#111827", lineHeight: 1.12, marginBottom: 16 }}>Build the business case.<br />Own the conversation.</div>
+                <div style={{ fontFamily: "'Lora',serif", fontSize: 16, color: "#6B7280", lineHeight: 1.75, marginBottom: 28, maxWidth: 560 }}>
+                  Every software purchase starts the same way — a vendor fills the gap in your thinking before you've had a chance to define it yourself. BuyRight changes that. It gives any business leader the structured thinking required to evaluate software on their own terms, not the vendor's.
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <button className="rq-btn-primary" style={{ padding: "13px 28px", fontSize: 13 }} onClick={resetSession}>
+                    <Plus size={15} /> Start new project
+                  </button>
+                  <button className="rq-btn-ghost" style={{ padding: "13px 20px" }} onClick={() => setView("sessions")}>View projects</button>
                 </div>
               </div>
+
+              {/* What it does */}
+              <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", paddingTop: 40, marginBottom: 48 }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#9CA3AF", marginBottom: 24 }}>What it does</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                  {[
+                    { n: "01", title: "Scope", body: "Describe the business problem. The agent drafts a formal scope, evaluates it for quality, and iterates until it meets the bar." },
+                    { n: "02", title: "Requirements", body: "Generates binary success criteria — yes/no questions vendors must answer. No narratives, no wiggle room." },
+                    { n: "03", title: "Due Diligence", body: "Discovery questions per requirement that expose how vendors actually implement each capability." },
+                    { n: "04", title: "Market Survey", body: "Agent-identified vendor shortlist with pricing signals and requirements fit — mainstream and niche categories alike." },
+                    { n: "05", title: "Buying Timeline", body: "Procurement timeline calibrated to your buying channel with a Gantt chart ready to share." },
+                    { n: "06", title: "Business Case", body: "Narrative, vendor comparison, and pricing estimates formatted for executive presentation or internal alignment." },
+                  ].map(s => (
+                    <div key={s.n} style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 10, padding: "18px 20px" }}>
+                      <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "#C2410C", marginBottom: 6 }}>{s.n}</div>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 6 }}>{s.title}</div>
+                      <div style={{ fontFamily: "'Lora',serif", fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>{s.body}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer / Acuity */}
+              <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", paddingTop: 28, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+                <div style={{ fontFamily: "'Lora',serif", fontSize: 12, color: "#9CA3AF", lineHeight: 1.7, maxWidth: 420 }}>
+                  BuyRight is built on 20 years of procurement practice by <a href="https://acuitysourcing.com" target="_blank" rel="noopener noreferrer" style={{ color: "#C2410C", textDecoration: "none" }}>Acuity Sourcing</a>. The methodology is the same one used in client engagements — buy based on needs, not what vendors want to sell you. When the stakes are high enough to want a practitioner in the room, that's what Acuity is for.
+                </div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#D1D5DB", paddingTop: 4 }}>Acuity Sourcing</div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -1395,6 +1581,8 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
           {saveStatus === "idle" && lastSaved && <span style={{ color: "#9CA3AF" }}><Clock size={11} style={{ display: "inline", marginRight: 4 }} />{lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
         </div>
         <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
+        <button className="rq-btn-icon rq-btn-del" onClick={doDeleteCurrentSession} title="Delete this project"><Trash2 size={13} /></button>
+        {authUser && <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={signOut}>Sign out</button>}
         <button className="rq-export-btn" onClick={doExport} disabled={!formalScope || exportBusy}>
           {exportBusy ? <Loader size={14} className="spin" /> : <FileText size={14} />} <span>Export .docx</span>
         </button>
@@ -1613,62 +1801,61 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
                 <div className="rq-section-label" style={{ marginBottom: 6 }}>Project title</div>
                 <input className="rq-input" style={{ marginBottom: 22 }} placeholder="e.g. Enterprise HR Management System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
 
-                {/* Company website context */}
-                <div className="rq-section-label" style={{ marginBottom: 8 }}>Company website <span style={{ fontFamily: "'Lora',serif", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11, color: "#9CA3AF" }}>(optional — adds context to your scope)</span></div>
-                <div style={{ display: "flex", gap: 8, marginBottom: answers.companyProfile ? 10 : 22, alignItems: "flex-start" }}>
-                  <input
-                    className="rq-input"
-                    style={{ flex: 1 }}
-                    placeholder="e.g. kraftheinz.com or https://www.acme.com/about"
-                    value={answers.companyName || ""}
-                    onChange={e => {
-                      setAnswers(p => ({ ...p, companyName: e.target.value, companyProfile: null }));
-                      setCompanyLookupErr("");
-                    }}
-                    onKeyDown={e => e.key === "Enter" && doCompanyLookup(answers.companyName)}
-                  />
-                  <button
-                    className="rq-btn-ghost"
-                    onClick={() => doCompanyLookup(answers.companyName)}
-                    disabled={companyLookupBusy || !answers.companyName?.trim()}
-                    style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-                  >
-                    {companyLookupBusy ? <><Loader size={11} className="spin" /> Scanning…</> : <>Scan site</>}
-                  </button>
-                </div>
-                {companyLookupErr && <div style={{ fontSize: 12, color: "#D97706", marginBottom: 10, fontStyle: "italic" }}>{companyLookupErr}</div>}
-                {answers.companyProfile && (() => {
-                  const p = answers.companyProfile;
-                  return (
-                    <div style={{ background: "#FFF7ED", border: "1px solid rgba(194,65,12,0.2)", borderRadius: 8, padding: "12px 16px", marginBottom: 22, fontSize: 12 }} className="rq-fade">
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 700, color: "#C2410C" }}>{p.name}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "#9CA3AF" }}>from website · verify before use</div>
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
-                        {p.vertical && <span style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 3, padding: "2px 8px", fontSize: 10, color: "#374151" }}>{p.vertical}</span>}
-                        {p.employeeCount && <span style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 3, padding: "2px 8px", fontSize: 10, color: "#374151" }}>{p.employeeCount} employees</span>}
-                        {p.hq && <span style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 3, padding: "2px 8px", fontSize: 10, color: "#374151" }}>{p.hq}</span>}
-                        {p.publicPrivate && <span style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 3, padding: "2px 8px", fontSize: 10, color: "#374151" }}>{p.publicPrivate}{p.ticker ? ` · ${p.ticker}` : ""}</span>}
-                        {p.regulatoryContext && <span style={{ background: "#FFFBEB", border: "1px solid rgba(217,119,6,0.25)", borderRadius: 3, padding: "2px 8px", fontSize: 10, color: "#D97706" }}>{p.regulatoryContext}</span>}
-                      </div>
-                      {p.description && <div style={{ color: "#6B7280", lineHeight: 1.5, marginBottom: p.knownTechStack?.length ? 6 : 0 }}>{p.description}</div>}
-                      {p.knownTechStack?.length > 0 && <div style={{ color: "#9CA3AF", fontSize: 11 }}>Known tech: {p.knownTechStack.join(", ")}</div>}
-                    </div>
-                  );
-                })()}
-
                 <div className="rq-section-label" style={{ marginBottom: 8 }}>What business problem are you trying to solve?</div>
-                <p className="rq-hint" style={{ marginBottom: 12 }}>Describe what you need in your own words — the system, the problem, who will use it, any deadlines or constraints, and what's out of scope. The more context you provide, the better the scope.</p>
+                <p className="rq-hint" style={{ marginBottom: 12 }}>Describe what you need in your own words — the system, the problem, who will use it, any deadlines or constraints, and what's out of scope. The more context you provide, the better the output.</p>
                 <textarea
                   className="rq-textarea"
                   placeholder="e.g. Our HR team manages payroll, benefits, and employee records across three legacy systems that don't talk to each other. We need a single platform to consolidate these by end of 2026. Recruiting and performance management are out of scope..."
                   value={answers.who ? FIVE_WS.map(w => answers[w.key]).filter(Boolean).join(" ") : (answers.freeform || "")}
-                  onChange={e => setAnswers(p => ({ ...p, freeform: e.target.value }))}
+                  onChange={e => { setAnswers(p => ({ ...p, freeform: e.target.value })); setScopeBullets([]); setBulletsApproved(false); setFormalScope(""); setScopeApproved(false); }}
                   rows={6}
                   style={{ marginBottom: 8 }}
                 />
                 {scopeErr && <div className="rq-error">{scopeErr}</div>}
+
+                {/* Step 1 — Extract bullets */}
+                {!scopeBullets.length && (
+                  <div className="rq-actions" style={{ marginTop: 8 }}>
+                    <button className="rq-btn-primary" onClick={doExtractBullets} disabled={!allAnswered || scopeBusy}>
+                      {scopeBusy ? <><Loader size={13} className="spin" /> Extracting…</> : <>Extract key points <ChevronRight size={13} /></>}
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 2 — Review & approve bullets */}
+                {scopeBullets.length > 0 && !formalScope && (
+                  <div style={{ marginTop: 20 }} className="rq-fade">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div className="rq-section-label" style={{ marginBottom: 0 }}>Key points — review and edit</div>
+                      <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={doExtractBullets} disabled={scopeBusy}><RefreshCw size={10} /> Re-extract</button>
+                    </div>
+                    <p className="rq-hint" style={{ marginBottom: 12 }}>Edit any bullet to refine it. These points will drive both the scope and the business case narrative.</p>
+                    {scopeBullets.map((bullet, idx) => (
+                      <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "flex-start" }}>
+                        <div style={{ color: "#C2410C", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, paddingTop: 10, flexShrink: 0 }}>•</div>
+                        <input
+                          className="rq-input"
+                          value={bullet}
+                          onChange={e => { const b = [...scopeBullets]; b[idx] = e.target.value; setScopeBullets(b); }}
+                          style={{ flex: 1 }}
+                        />
+                        <button className="rq-btn-icon rq-btn-del" onClick={() => setScopeBullets(p => p.filter((_, i) => i !== idx))} style={{ marginTop: 2, flexShrink: 0 }}><X size={11} /></button>
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", gap: 8, marginTop: 8, marginBottom: 16 }}>
+                      <input className="rq-input" placeholder="Add a point…" id="newBulletInput"
+                        onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setScopeBullets(p => [...p, e.target.value.trim()]); e.target.value = ""; }}} />
+                      <button className="rq-btn-ghost" style={{ whiteSpace: "nowrap" }} onClick={() => { const el = document.getElementById("newBulletInput"); if (el?.value.trim()) { setScopeBullets(p => [...p, el.value.trim()]); el.value = ""; }}}><Plus size={11} /> Add</button>
+                    </div>
+                    <div className="rq-actions">
+                      <button className="rq-btn-primary" onClick={doGenerateScope} disabled={scopeBusy || scopeBullets.length === 0}>
+                        {scopeBusy ? <><Loader size={13} className="spin" /> Creating scope…</> : <>Create scope <ChevronRight size={13} /></>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3 — Generated scope + quality loop */}
                 {formalScope && (
                   <div style={{ marginTop: 20 }} className="rq-fade">
                     <div className="rq-section-label">Generated scope</div>
@@ -1750,13 +1937,6 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
-                {!formalScope && (
-                  <div className="rq-actions" style={{ marginTop: 8 }}>
-                    <button className="rq-btn-primary" onClick={doGenerateScope} disabled={!allAnswered || scopeBusy}>
-                      {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
-                    </button>
                   </div>
                 )}
               </div>
