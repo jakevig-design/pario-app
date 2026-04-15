@@ -1148,17 +1148,50 @@ export default function RequirementsAgent() {
     setChatInput("");
     setChatBusy(true);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
       const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system: P_SCOPE_CHAT,
+          system: P_SCOPE_CHAT((() => {
+            const p = answers.companyProfile;
+            if (!p) return null;
+            return [
+              p.name && `Company: ${p.name}`,
+              p.vertical && `Industry: ${p.vertical}${p.subVertical ? ` — ${p.subVertical}` : ""}`,
+              p.hq && `HQ: ${p.hq}`,
+              p.publicPrivate && `Type: ${p.publicPrivate}${p.ticker ? ` (${p.ticker})` : ""}`,
+              p.knownTechStack?.length && `Known tech stack: ${p.knownTechStack.join(", ")}`,
+              p.regulatoryContext && `Regulatory obligations: ${p.regulatoryContext}`,
+              p.description && `About: ${p.description}`,
+            ].filter(Boolean).join("\n");
+          })()),
           user: newMessages.map(m => `${m.role === "user" ? "User" : "BuyRight"}: ${m.content}`).join("\n\n"),
           model: "claude-haiku-4-5-20251001",
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
+
       const data = await res.json();
-      const reply = (data.content?.filter(b => b.type === "text").map(b => b.text).join("") ?? "").trim();
+
+      // Handle API errors
+      if (!res.ok || data.error) {
+        setChatMessages(prev => [...prev, { role: "assistant", content: "Something went wrong — please try again." }]);
+        return;
+      }
+
+      // Extract text from content array
+      const reply = (Array.isArray(data.content)
+        ? data.content.filter(b => b.type === "text").map(b => b.text).join("")
+        : (typeof data.content === "string" ? data.content : "")
+      ).trim();
+
+      if (!reply) {
+        setChatMessages(prev => [...prev, { role: "assistant", content: "I didn't get a response — please try again." }]);
+        return;
+      }
 
       // Strict DONE detection — must start with DONE on its own line
       const doneMatch = reply.match(/^DONE\s*\n([\s\S]*)/);
@@ -1171,16 +1204,19 @@ export default function RequirementsAgent() {
             setScopeBullets(Array.isArray(bullets) ? bullets : []);
             setChatMessages(prev => [...prev, { role: "assistant", content: "Got it — here's what I captured. Edit anything before generating your scope." }]);
             return;
-          } catch { /* fall through to show as message */ }
+          } catch { /* fall through */ }
         }
       }
 
-      // Strip any markdown bold from conversational replies
+      // Strip markdown bold, render clean
       const clean = reply.replace(/\*\*(.*?)\*\*/g, "$1");
       setChatMessages(prev => [...prev, { role: "assistant", content: clean }]);
-    } catch {
-      setChatMessages(prev => [...prev, { role: "assistant", content: "Something went wrong — please try again." }]);
-    } finally { setChatBusy(false); }
+    } catch (e) {
+      const msg = e.name === "AbortError" ? "Request timed out — please try again." : "Something went wrong — please try again.";
+      setChatMessages(prev => [...prev, { role: "assistant", content: msg }]);
+    } finally {
+      setChatBusy(false);
+    }
   };
 
   const doStartChat = async () => {
@@ -1610,7 +1646,9 @@ Example format:
 
               {/* Hero */}
               <div style={{ marginBottom: 52 }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 14 }}>BuyRight</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 14 }}>
+                  BuyRight{tenantBrandName ? ` · ${tenantBrandName}` : ""}
+                </div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 38, fontWeight: 800, color: "#111827", lineHeight: 1.12, marginBottom: 16 }}>Build the business case.<br />Own the conversation.</div>
                 <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#C2410C", lineHeight: 1.6, marginBottom: 12, fontStyle: "italic" }}>
                   "Software buying moves pretty fast. If you don't stop and define what you need, vendors will define it for you."
