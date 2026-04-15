@@ -576,28 +576,25 @@ function GanttChart({ activities }) {
 }
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
-const P_SCOPE_CHAT = `You are BuyRight, a smart advisor helping a business leader define what they need before buying software. Your job is to ask sharp, targeted follow-up questions to fill gaps in their description — then summarize what you've learned as structured bullet points when you have enough.
+const P_SCOPE_CHAT = `You are BuyRight, a smart intake assistant helping a business leader define what they need before buying software. Your ONLY job is to ask clarifying questions and then output a structured bullet list when you have enough information.
 
-CONVERSATION RULES:
-- Start by briefly acknowledging what the user described (1 sentence max), then ask ONE targeted question
-- Ask only what would materially change the scope or vendor selection — skip questions where context already implies the answer
-- Be conversational, friendly, and confident — not formal or bureaucratic
-- Never ask more than 4 follow-up questions total across the conversation
-- When you have enough information (specificity, exclusions, who/what/when/why, integrations), respond with DONE followed by a JSON array of bullet points
+STRICT RULES:
+- Ask ONE question at a time — never multiple questions in one message
+- Never generate a scope, never list vendors, never give advice or next steps
+- Never use markdown formatting (no **, no ##, no bullets) in your questions
+- Be brief and conversational — one or two sentences max per message
+- Ask only what would materially change the scope or vendor selection
+- Skip questions where context already implies the answer
+- Maximum 4 questions total across the entire conversation
+- When you type "skip" or the user says skip, move to the next most important question
 
-Topics to probe if not already covered (pick only the most relevant):
-- Who uses it and who owns the decision
-- What it must integrate with (and format/protocol requirements)
-- Timeline or deadline drivers  
-- What's explicitly out of scope
-- Scale (users, locations, transactions, data volume) — only if it materially affects vendor choice
-- Regulatory or compliance context — only if the vertical implies it
+WHEN YOU HAVE ENOUGH INFORMATION:
+You must have covered: what the system needs to do, who uses it, key integrations or constraints, and what is out of scope. When satisfied — or after 4 questions — output EXACTLY this format and nothing else:
 
-When ready to summarize, respond EXACTLY like this (no other text):
 DONE
-["bullet one", "bullet two", ...]
+["bullet one", "bullet two", "bullet three"]
 
-The bullets should be 6-10 clear, factual statements capturing the full picture.`;
+The bullets should be 6-10 clear factual statements. No other text before or after.`;
 
 const P_SCOPE_GENERATE = `You are a professional business analyst writing a formal project scope for a software vendor or procurement document.
 
@@ -1272,22 +1269,29 @@ export default function RequirementsAgent() {
         }),
       });
       const data = await res.json();
-      const reply = data.content?.filter(b => b.type === "text").map(b => b.text).join("") ?? "";
+      const reply = (data.content?.filter(b => b.type === "text").map(b => b.text).join("") ?? "").trim();
 
-      // Check if AI is done
-      if (reply.trim().startsWith("DONE")) {
-        const jsonPart = reply.replace(/^DONE\s*/i, "").trim();
+      // Strict DONE detection — must start with DONE on its own line
+      const doneMatch = reply.match(/^DONE\s*\n([\s\S]*)/);
+      if (doneMatch) {
+        const jsonPart = doneMatch[1].trim();
         const arrMatch = jsonPart.match(/\[[\s\S]*\]/);
         if (arrMatch) {
-          const bullets = JSON.parse(arrMatch[0]);
-          setScopeBullets(bullets);
-          setChatMessages(prev => [...prev, { role: "assistant", content: "Got everything I need. Here's what I've captured — edit any point before creating your scope.", done: true }]);
+          try {
+            const bullets = JSON.parse(arrMatch[0]);
+            setScopeBullets(Array.isArray(bullets) ? bullets : []);
+            setChatMessages(prev => [...prev, { role: "assistant", content: "Got it — here's what I captured. Edit anything before generating your scope." }]);
+            return;
+          } catch { /* fall through to show as message */ }
         }
-      } else {
-        setChatMessages(prev => [...prev, { role: "assistant", content: reply.trim() }]);
       }
-    } catch { setChatMessages(prev => [...prev, { role: "assistant", content: "Something went wrong — please try again." }]); }
-    finally { setChatBusy(false); }
+
+      // Strip any markdown bold from conversational replies
+      const clean = reply.replace(/\*\*(.*?)\*\*/g, "$1");
+      setChatMessages(prev => [...prev, { role: "assistant", content: clean }]);
+    } catch {
+      setChatMessages(prev => [...prev, { role: "assistant", content: "Something went wrong — please try again." }]);
+    } finally { setChatBusy(false); }
   };
 
   const doStartChat = async () => {
