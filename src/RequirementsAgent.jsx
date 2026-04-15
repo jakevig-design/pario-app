@@ -361,6 +361,48 @@ function makeDefaultActivities(startDate) {
 const GROUPS = ["Pre-RFx", "RFx", "Post-RFx"];
 const GROUP_COLORS = { "Pre-RFx": "#2e5984", "RFx": "#3a6a52", "Post-RFx": "#a05828" };
 
+// ─── Sole source activities ────────────────────────────────────────────────────
+function makeSoleSourceActivities(startDate) {
+  const t = startDate || today();
+  const d = (base, offset) => addCalDays(base, offset);
+
+  const scopeEnd   = d(t, 7);
+  const memoStart  = d(t, 7);
+  const memoEnd    = d(memoStart, 7);
+  const demoStart  = d(memoEnd, 5);
+  const demoEnd    = d(demoStart, 14);
+  const alignStart = d(demoEnd, 3);
+  const alignEnd   = d(alignStart, 5);
+  const finalStart = d(alignEnd, 5);
+  const finalEnd   = d(finalStart, 5);
+  const negoStart  = d(finalEnd, 1);
+  const negoEnd    = d(negoStart, 30);
+  const implStart  = d(negoEnd, 7);
+  const implEnd    = d(implStart, 45);
+
+  return [
+    { id: "s1",  group: "Pre-RFx",  parentId: null, name: "Draft Scope & Requirements",         startDate: t,          endDate: scopeEnd,   offsetDays: 7,  startOffsetDays: 0 },
+    { id: "s2",  group: "Pre-RFx",  parentId: null, name: "Draft Sole Source Justification",    startDate: memoStart,  endDate: memoEnd,    offsetDays: 7,  startOffsetDays: calDaysBetween(t, memoStart) },
+    { id: "s3",  group: "RFx",      parentId: null, name: "Technical Evaluation (Demo / POC)",  startDate: demoStart,  endDate: demoEnd,    offsetDays: 14, startOffsetDays: calDaysBetween(t, demoStart) },
+    { id: "s4",  group: "Post-RFx", parentId: null, name: "Internal Alignment & Confirm Budget",startDate: alignStart, endDate: alignEnd,   offsetDays: 5,  startOffsetDays: calDaysBetween(t, alignStart) },
+    { id: "s5",  group: "Post-RFx", parentId: null, name: "Final Recommendation",               startDate: finalStart, endDate: finalEnd,   offsetDays: 5,  startOffsetDays: calDaysBetween(t, finalStart) },
+    { id: "s6",  group: "Post-RFx", parentId: null, name: "Negotiate Contract",                 startDate: negoStart,  endDate: negoEnd,    offsetDays: 30, startOffsetDays: calDaysBetween(t, negoStart) },
+    { id: "s7",  group: "Post-RFx", parentId: null, name: "Implementation",                     startDate: implStart,  endDate: implEnd,    offsetDays: 45, startOffsetDays: calDaysBetween(t, implStart) },
+  ];
+}
+
+// ─── Auto-suggest buying channel from scope bullets ───────────────────────────
+function suggestChannel(scopeBullets, formalScope) {
+  const text = [...(scopeBullets || []), formalScope || ""].join(" ").toLowerCase();
+  const soleSourceSignals = [
+    "sole source", "single vendor", "only vendor", "existing vendor", "incumbent",
+    "proprietary", "no alternative", "only option", "continuation", "existing contract",
+    "current provider", "specific vendor", "named vendor", "sole supplier",
+  ];
+  const hits = soleSourceSignals.filter(s => text.includes(s));
+  return hits.length >= 1 ? "sole-source" : "competitive-bid";
+}
+
 // ─── Gantt ────────────────────────────────────────────────────────────────────
 function GanttChart({ activities }) {
   const allDates = activities.flatMap(a => [a.startDate, a.endDate]).filter(Boolean).sort();
@@ -521,23 +563,32 @@ function GanttChart({ activities }) {
 }
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
-const P_SCOPE_BULLETS = `You are a senior business analyst. Given a free-form description of a business problem and software need, extract the key points as a structured bullet list.
+const P_SCOPE_CHAT = `You are BuyRight, a smart advisor helping a business leader define what they need before buying software. Your job is to ask sharp, targeted follow-up questions to fill gaps in their description — then summarize what you've learned as structured bullet points when you have enough.
 
-Each bullet should be a single, clear, factual statement. Aim for 6-10 bullets that capture:
-- The business problem and who it affects
-- What the solution needs to do
-- Key constraints (timeline, integrations, budget signals)
-- What is explicitly out of scope
-- Any relevant context (company size, regulatory requirements, existing systems)
+CONVERSATION RULES:
+- Start by briefly acknowledging what the user described (1 sentence max), then ask ONE targeted question
+- Ask only what would materially change the scope or vendor selection — skip questions where context already implies the answer
+- Be conversational, friendly, and confident — not formal or bureaucratic
+- Never ask more than 4 follow-up questions total across the conversation
+- When you have enough information (specificity, exclusions, who/what/when/why, integrations), respond with DONE followed by a JSON array of bullet points
 
-Correct any typos or grammatical errors. Define any acronyms or internal system names on first use.
+Topics to probe if not already covered (pick only the most relevant):
+- Who uses it and who owns the decision
+- What it must integrate with (and format/protocol requirements)
+- Timeline or deadline drivers  
+- What's explicitly out of scope
+- Scale (users, locations, transactions, data volume) — only if it materially affects vendor choice
+- Regulatory or compliance context — only if the vertical implies it
 
-Return ONLY a JSON array of strings. No markdown, no preamble, no explanation:
-["The current payroll system...", "The solution must integrate with...", ...]`;
+When ready to summarize, respond EXACTLY like this (no other text):
+DONE
+["bullet one", "bullet two", ...]
+
+The bullets should be 6-10 clear, factual statements capturing the full picture.`;
 
 const P_SCOPE_GENERATE = `You are a professional business analyst writing a formal project scope for a software vendor or procurement document.
 
-Given a list of approved scope bullet points and company context, write a formal scope narrative.
+Given a list of approved scope bullet points and company context, write a formal scope narrative in flowing prose paragraphs.
 
 SCOPE QUALITY RULES — the scope MUST:
 1. Be specific — include concrete details about deadlines, milestones, or deliverables where provided
@@ -546,6 +597,8 @@ SCOPE QUALITY RULES — the scope MUST:
 4. Address integration compatibility — when referencing integrations, name the specific tools and note whether open or proprietary formats are required
 5. Include relevant company context (industry, size, regulatory environment) where it affects vendor selection
 6. Be clean and professional — this will be shared with vendors
+
+FORMAT: Plain prose paragraphs only. No markdown, no headers (##), no bullet points (-), no bold (**). Just clean paragraphs separated by blank lines.
 
 Return ONLY the scope text. No preamble, no explanation.`;
 
@@ -887,6 +940,9 @@ export default function RequirementsAgent() {
   const [execSummary, setExecSummary] = useState("");
   const [scopeBullets, setScopeBullets] = useState([]);
   const [bulletsApproved, setBulletsApproved] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]); // [{role, content}]
+  const [chatInput, setChatInput] = useState("");
+  const [chatBusy, setChatBusy] = useState(false);
   const [scopeFlags, setScopeFlags] = useState([]);
   const [flagResponses, setFlagResponses] = useState({});
   const [scopeApproved, setScopeApproved] = useState(false);
@@ -914,6 +970,8 @@ export default function RequirementsAgent() {
   const [rfpStart, setRfpStart] = useState(today);
   const [goLive, setGoLive] = useState(() => addCalDays(today(), 180));
   const [activities, setActivities] = useState(() => makeDefaultActivities(today()));
+  const [buyingChannel, setBuyingChannel] = useState(null); // null | "competitive-bid" | "sole-source"
+  const [channelSuggested, setChannelSuggested] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState({ "Pre-RFx": false, "RFx": false, "Post-RFx": false });
   const [dragId, setDragId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
@@ -1006,6 +1064,8 @@ export default function RequirementsAgent() {
     setExecSummary("");
     setScopeBullets([]);
     setBulletsApproved(false);
+    setChatMessages([]);
+    setChatInput("");
     setScopeFlags([]);
     setFlagResponses({});
     setScopeApproved(false);
@@ -1024,16 +1084,20 @@ export default function RequirementsAgent() {
     setVendorStatus({});
     setMarketErr("");
     setActivities(makeDefaultActivities(today()));
+    setBuyingChannel(null);
+    setChannelSuggested(false);
     setRfpStart(today());
     setGoLive(addCalDays(today(), 180));
     setView("scope");
   };
 
-  const getSessionData = () => ({ step, projectTitle, answers, formalScope, execSummary, scopeBullets, bulletsApproved, scopeApproved, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus, narrative });
+  const getSessionData = () => ({ step, projectTitle, answers, formalScope, execSummary, scopeBullets, bulletsApproved, chatMessages, scopeApproved, requirements, questions, activities, rfpStart, goLive, buyingChannel, vendors, vendorStatus, narrative });
 
   const doSave = async (status = "draft") => {
     setSaveStatus("saving");
-    const ok = await saveSession({ id: sessionId, projectTitle: projectTitle || "Untitled", status, data: getSessionData() });
+    const userId = authUser?.id || null;
+    const tenantId = userProfile?.tenant_id || null;
+    const ok = await saveSession({ id: sessionId, projectTitle: projectTitle || "Untitled", status, data: getSessionData(), userId, tenantId });
     if (ok) { setSaveStatus("saved"); setLastSaved(new Date()); isDirty.current = false; loadSessions().then(setSessionsList); setTimeout(() => setSaveStatus("idle"), 2500); }
     else { setSaveStatus("error"); setTimeout(() => setSaveStatus("idle"), 3000); }
   };
@@ -1050,12 +1114,14 @@ export default function RequirementsAgent() {
     if (d.execSummary) setExecSummary(d.execSummary);
     if (d.scopeBullets) setScopeBullets(d.scopeBullets);
     if (d.bulletsApproved) setBulletsApproved(d.bulletsApproved);
+    if (d.chatMessages) setChatMessages(d.chatMessages);
     if (d.scopeApproved) setScopeApproved(d.scopeApproved);
     setEditingScope(false);
     if (d.requirements) setRequirements(d.requirements);
     if (d.questions) setQuestions(d.questions);
     if (d.rfpStart) setRfpStart(d.rfpStart);
     if (d.goLive) setGoLive(d.goLive);
+    if (d.buyingChannel) { setBuyingChannel(d.buyingChannel); setChannelSuggested(true); }
     // Only restore activities if they have the new group structure
     if (d.activities && d.activities.length > 0 && d.activities[0].group) {
       // Migrate old Pre-RFP/RFP/Post-RFP group names to Pre-RFx/RFx/Post-RFx
@@ -1089,6 +1155,27 @@ export default function RequirementsAgent() {
     setView("sessions");
   };
 
+  const doSelectChannel = (channel) => {
+    setBuyingChannel(channel);
+    setChannelSuggested(true);
+    const newActivities = channel === "sole-source"
+      ? makeSoleSourceActivities(rfpStart)
+      : makeDefaultActivities(rfpStart);
+    setActivities(newActivities);
+    // Update go-live to last activity end date
+    const lastDate = newActivities.map(a => a.endDate).filter(Boolean).sort().pop();
+    if (lastDate) setGoLive(lastDate);
+  };
+
+  // Auto-suggest channel when requirements are first generated
+  useEffect(() => {
+    if (requirements.length > 0 && !channelSuggested && (scopeBullets.length > 0 || formalScope)) {
+      const suggested = suggestChannel(scopeBullets, formalScope);
+      setBuyingChannel(suggested);
+      setChannelSuggested(true);
+    }
+  }, [requirements]);
+
   const handleRfpStartChange = (newStart) => {
     setRfpStart(newStart);
     // Recompute all dates from stored offsets relative to new start
@@ -1102,15 +1189,48 @@ export default function RequirementsAgent() {
   const handleGoLiveChange = (newEnd) => {
     setGoLive(newEnd);
   };
-  const doExtractBullets = async () => {
-    setScopeBusy(true); setScopeErr(""); setScopeBullets([]); setBulletsApproved(false);
-    setFormalScope(""); setScopeApproved(false); setScopeFlags([]); setExpertQuestions([]);
+  const doSendChatMessage = async (userText) => {
+    if (!userText?.trim()) return;
+    const newMessages = [...chatMessages, { role: "user", content: userText.trim() }];
+    setChatMessages(newMessages);
+    setChatInput("");
+    setChatBusy(true);
     try {
-      const input = answers.freeform || FIVE_WS.map(w => answers[w.key]).filter(Boolean).join("\n");
-      const result = await callJSON(P_SCOPE_BULLETS, input, false, "claude-haiku-4-5-20251001");
-      setScopeBullets(Array.isArray(result) ? result : []);
-    } catch { setScopeErr("Could not extract bullet points. Please try again."); }
-    finally { setScopeBusy(false); }
+      const res = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system: P_SCOPE_CHAT,
+          user: newMessages.map(m => `${m.role === "user" ? "User" : "BuyRight"}: ${m.content}`).join("\n\n"),
+          model: "claude-haiku-4-5-20251001",
+        }),
+      });
+      const data = await res.json();
+      const reply = data.content?.filter(b => b.type === "text").map(b => b.text).join("") ?? "";
+
+      // Check if AI is done
+      if (reply.trim().startsWith("DONE")) {
+        const jsonPart = reply.replace(/^DONE\s*/i, "").trim();
+        const arrMatch = jsonPart.match(/\[[\s\S]*\]/);
+        if (arrMatch) {
+          const bullets = JSON.parse(arrMatch[0]);
+          setScopeBullets(bullets);
+          setChatMessages(prev => [...prev, { role: "assistant", content: "Got everything I need. Here's what I've captured — edit any point before creating your scope.", done: true }]);
+        }
+      } else {
+        setChatMessages(prev => [...prev, { role: "assistant", content: reply.trim() }]);
+      }
+    } catch { setChatMessages(prev => [...prev, { role: "assistant", content: "Something went wrong — please try again." }]); }
+    finally { setChatBusy(false); }
+  };
+
+  const doStartChat = async () => {
+    const input = answers.freeform?.trim();
+    if (!input) return;
+    setScopeBullets([]); setBulletsApproved(false);
+    setFormalScope(""); setScopeApproved(false); setScopeFlags([]); setExpertQuestions([]);
+    setChatMessages([]);
+    await doSendChatMessage(input);
   };
 
   const doGenerateScope = async () => {
@@ -1631,7 +1751,14 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
             {/* ── Timeline ── */}
             {view === "timeline" && (
               <div className="rq-fade">
-                <p className="rq-hint">Set your start and go-live dates — all activity dates cascade automatically.</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <p className="rq-hint" style={{ marginBottom: 0, flex: 1 }}>Set your start and go-live dates — all activity dates cascade automatically.</p>
+                  {buyingChannel && (
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", padding: "4px 10px", borderRadius: 4, background: buyingChannel === "sole-source" ? "#FFFBEB" : "#FFF7ED", color: buyingChannel === "sole-source" ? "#D97706" : "#C2410C", whiteSpace: "nowrap" }}>
+                      {buyingChannel === "sole-source" ? "Sole Source" : "Competitive Bid"}
+                    </div>
+                  )}
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 }}>
                   <div style={{ background: "#FFFFFF", border: "1px solid rgba(194,65,12,0.2)", borderRadius: 8, padding: "14px 16px" }}>
                     <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#C2410C", marginBottom: 6 }}>RFx Start Date</div>
@@ -1803,48 +1930,120 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
 
                 <div className="rq-section-label" style={{ marginBottom: 8 }}>What business problem are you trying to solve?</div>
                 <p className="rq-hint" style={{ marginBottom: 12 }}>Describe what you need in your own words — the system, the problem, who will use it, any deadlines or constraints, and what's out of scope. The more context you provide, the better the output.</p>
-                <textarea
-                  className="rq-textarea"
-                  placeholder="e.g. Our HR team manages payroll, benefits, and employee records across three legacy systems that don't talk to each other. We need a single platform to consolidate these by end of 2026. Recruiting and performance management are out of scope..."
-                  value={answers.who ? FIVE_WS.map(w => answers[w.key]).filter(Boolean).join(" ") : (answers.freeform || "")}
-                  onChange={e => { setAnswers(p => ({ ...p, freeform: e.target.value })); setScopeBullets([]); setBulletsApproved(false); setFormalScope(""); setScopeApproved(false); }}
-                  rows={6}
-                  style={{ marginBottom: 8 }}
-                />
-                {scopeErr && <div className="rq-error">{scopeErr}</div>}
 
-                {/* Step 1 — Extract bullets */}
-                {!scopeBullets.length && (
-                  <div className="rq-actions" style={{ marginTop: 8 }}>
-                    <button className="rq-btn-primary" onClick={doExtractBullets} disabled={!allAnswered || scopeBusy}>
-                      {scopeBusy ? <><Loader size={13} className="spin" /> Extracting…</> : <>Extract key points <ChevronRight size={13} /></>}
-                    </button>
+                {/* Initial free-form — only shown before chat starts */}
+                {chatMessages.length === 0 && (
+                  <>
+                    <textarea
+                      className="rq-textarea"
+                      placeholder="e.g. Our HR team manages payroll, benefits, and employee records across three legacy systems that don't talk to each other. We need a single platform to consolidate these by end of 2026. Recruiting and performance management are out of scope..."
+                      value={answers.freeform || ""}
+                      onChange={e => setAnswers(p => ({ ...p, freeform: e.target.value }))}
+                      rows={5}
+                      style={{ marginBottom: 10 }}
+                    />
+                    <div className="rq-actions">
+                      <button className="rq-btn-primary" onClick={doStartChat} disabled={!allAnswered || chatBusy || scopeBusy}>
+                        {chatBusy ? <><Loader size={13} className="spin" /> Thinking…</> : <>Let's go <ChevronRight size={13} /></>}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {/* Chat conversation */}
+                {chatMessages.length > 0 && !scopeBullets.length && (
+                  <div style={{ marginTop: 4 }} className="rq-fade">
+                    {/* Message thread */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+                      {chatMessages.map((msg, idx) => (
+                        <div key={idx} style={{ display: "flex", gap: 10, justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end" }}>
+                          {msg.role === "assistant" && (
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#FFF7ED", border: "1px solid #FDBA74", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginBottom: 2 }}>
+                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C2410C" }} />
+                            </div>
+                          )}
+                          <div style={{
+                            maxWidth: "78%",
+                            padding: "10px 14px",
+                            borderRadius: msg.role === "user" ? "14px 14px 3px 14px" : "3px 14px 14px 14px",
+                            background: msg.role === "user" ? "#FFF7ED" : "#FFFFFF",
+                            border: msg.role === "user" ? "1px solid #FDBA74" : "1px solid rgba(0,0,0,0.07)",
+                            fontSize: 13,
+                            lineHeight: 1.55,
+                            color: msg.role === "user" ? "#7C2D12" : "#374151",
+                            fontFamily: "'Lora',serif",
+                          }}>
+                            {msg.content}
+                          </div>
+                        </div>
+                      ))}
+                      {chatBusy && (
+                        <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#FFF7ED", border: "1px solid #FDBA74", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C2410C" }} />
+                          </div>
+                          <div style={{ padding: "10px 14px", borderRadius: "3px 14px 14px 14px", background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", display: "flex", gap: 4, alignItems: "center" }}>
+                            {[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: "#D1D5DB", animation: `pulse 1.2s ease-in-out ${i*0.2}s infinite` }} />)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Reply input */}
+                    {!chatBusy && (
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          className="rq-input"
+                          style={{ flex: 1, borderRadius: 24, padding: "10px 16px" }}
+                          placeholder="Reply… (type 'skip' to skip this question)"
+                          value={chatInput}
+                          onChange={e => setChatInput(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && !e.shiftKey && doSendChatMessage(chatInput)}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => doSendChatMessage(chatInput)}
+                          disabled={!chatInput.trim()}
+                          style={{ width: 38, height: 38, borderRadius: "50%", background: chatInput.trim() ? "#C2410C" : "#F3F4F6", border: "none", cursor: chatInput.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s" }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke={chatInput.trim() ? "#fff" : "#9CA3AF"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ marginTop: 10 }}>
+                      <button className="rq-btn-ghost" style={{ fontSize: 10 }} onClick={() => { setChatMessages([]); setChatInput(""); }}>
+                        ← Start over
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                {/* Step 2 — Review & approve bullets */}
+                {/* Bullet review after chat completes */}
                 {scopeBullets.length > 0 && !formalScope && (
-                  <div style={{ marginTop: 20 }} className="rq-fade">
+                  <div style={{ marginTop: 16 }} className="rq-fade">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <div className="rq-section-label" style={{ marginBottom: 0 }}>Key points — review and edit</div>
-                      <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={doExtractBullets} disabled={scopeBusy}><RefreshCw size={10} /> Re-extract</button>
+                      <div className="rq-section-label" style={{ marginBottom: 0 }}>Here's what I captured</div>
+                      <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { setChatMessages([]); setScopeBullets([]); setChatInput(""); }}><RefreshCw size={10} /> Start over</button>
                     </div>
-                    <p className="rq-hint" style={{ marginBottom: 12 }}>Edit any bullet to refine it. These points will drive both the scope and the business case narrative.</p>
+                    <p className="rq-hint" style={{ marginBottom: 12 }}>Edit anything that's not right, then create your scope.</p>
                     {scopeBullets.map((bullet, idx) => (
-                      <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "flex-start" }}>
-                        <div style={{ color: "#C2410C", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, paddingTop: 10, flexShrink: 0 }}>•</div>
+                      <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                        <div style={{ color: "#C2410C", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, flexShrink: 0 }}>•</div>
                         <input
                           className="rq-input"
                           value={bullet}
                           onChange={e => { const b = [...scopeBullets]; b[idx] = e.target.value; setScopeBullets(b); }}
                           style={{ flex: 1 }}
                         />
-                        <button className="rq-btn-icon rq-btn-del" onClick={() => setScopeBullets(p => p.filter((_, i) => i !== idx))} style={{ marginTop: 2, flexShrink: 0 }}><X size={11} /></button>
+                        <button className="rq-btn-icon rq-btn-del" onClick={() => setScopeBullets(p => p.filter((_, i) => i !== idx))} style={{ flexShrink: 0 }}><X size={11} /></button>
                       </div>
                     ))}
                     <div style={{ display: "flex", gap: 8, marginTop: 8, marginBottom: 16 }}>
-                      <input className="rq-input" placeholder="Add a point…" id="newBulletInput"
-                        onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setScopeBullets(p => [...p, e.target.value.trim()]); e.target.value = ""; }}} />
+                      <input
+                        className="rq-input"
+                        placeholder="Add a point…"
+                        id="newBulletInput"
+                        onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setScopeBullets(p => [...p, e.target.value.trim()]); e.target.value = ""; }}}
+                      />
                       <button className="rq-btn-ghost" style={{ whiteSpace: "nowrap" }} onClick={() => { const el = document.getElementById("newBulletInput"); if (el?.value.trim()) { setScopeBullets(p => [...p, el.value.trim()]); el.value = ""; }}}><Plus size={11} /> Add</button>
                     </div>
                     <div className="rq-actions">
@@ -1855,13 +2054,56 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
                   </div>
                 )}
 
-                {/* Step 3 — Generated scope + quality loop */}
+                {/* Typing pulse animation */}
+                <style>{`@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}`}</style>
+
+                {scopeErr && <div className="rq-error">{scopeErr}</div>}
+
+                {/* Bullet review — always visible once chat completes, even after scope generated */}
+                {scopeBullets.length > 0 && (
+                  <div style={{ marginTop: 16, marginBottom: formalScope ? 24 : 0 }} className="rq-fade">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div className="rq-section-label" style={{ marginBottom: 0 }}>Key points</div>
+                      <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { setChatMessages([]); setScopeBullets([]); setChatInput(""); setFormalScope(""); setScopeApproved(false); setScopeFlags([]); setExpertQuestions([]); }}><RefreshCw size={10} /> Start over</button>
+                    </div>
+                    {scopeBullets.map((bullet, idx) => (
+                      <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                        <div style={{ color: "#C2410C", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, flexShrink: 0 }}>•</div>
+                        <input
+                          className="rq-input"
+                          value={bullet}
+                          onChange={e => { const b = [...scopeBullets]; b[idx] = e.target.value; setScopeBullets(b); }}
+                          style={{ flex: 1 }}
+                        />
+                        <button className="rq-btn-icon rq-btn-del" onClick={() => setScopeBullets(p => p.filter((_, i) => i !== idx))} style={{ flexShrink: 0 }}><X size={11} /></button>
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", gap: 8, marginTop: 8, marginBottom: 14 }}>
+                      <input className="rq-input" placeholder="Add a point…" id="newBulletInput"
+                        onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setScopeBullets(p => [...p, e.target.value.trim()]); e.target.value = ""; }}} />
+                      <button className="rq-btn-ghost" style={{ whiteSpace: "nowrap" }} onClick={() => { const el = document.getElementById("newBulletInput"); if (el?.value.trim()) { setScopeBullets(p => [...p, el.value.trim()]); el.value = ""; }}}><Plus size={11} /> Add</button>
+                    </div>
+                    {!formalScope && (
+                      <div className="rq-actions">
+                        <button className="rq-btn-primary" onClick={doGenerateScope} disabled={scopeBusy || scopeBullets.length === 0}>
+                          {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {formalScope && (
-                  <div style={{ marginTop: 20 }} className="rq-fade">
-                    <div className="rq-section-label">Generated scope</div>
+                  <div style={{ marginTop: 4 }} className="rq-fade">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div className="rq-section-label">Scope</div>
+                      {scopeBullets.length > 0 && !editingScope && (
+                        <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={doGenerateScope} disabled={scopeBusy}><RefreshCw size={10} /> Regenerate</button>
+                      )}
+                    </div>
                     {editingScope ? (
                       <>
-                        <textarea className="rq-textarea" value={formalScope} onChange={e => setFormalScope(e.target.value)} rows={5} style={{ marginBottom: 10 }} />
+                        <textarea className="rq-textarea" value={formalScope} onChange={e => setFormalScope(e.target.value)} rows={8} style={{ marginBottom: 10 }} />
                         <div className="rq-actions">
                           <button className="rq-btn-ghost" onClick={async () => { setEditingScope(false); setScopeApproved(false); setScopeFlags([]); setExpertQuestions([]); await doEvaluateScope(formalScope); }}><Check size={12} /> Done editing</button>
                           <button className="rq-btn-ghost" onClick={() => setEditingScope(false)}>Cancel</button>
@@ -1869,10 +2111,15 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
                       </>
                     ) : (
                       <>
-                        <div className="rq-scope-box">{formalScope}</div>
-                        <div className="rq-actions">
+                        <div className="rq-scope-box" style={{ whiteSpace: "pre-wrap" }}>
+                          {formalScope
+                            .replace(/^#{1,3}\s+/gm, '')
+                            .replace(/^[-*]\s+/gm, '• ')
+                            .replace(/\*\*(.*?)\*\*/g, '$1')
+                            .trim()}
+                        </div>
+                        <div className="rq-actions" style={{ marginTop: 10 }}>
                           <button className="rq-btn-ghost" onClick={() => setEditingScope(true)}><Pencil size={12} /> Edit</button>
-                          <button className="rq-btn-ghost" onClick={doGenerateScope} disabled={scopeBusy}><RefreshCw size={12} /> Regenerate</button>
                         </div>
                       </>
                     )}
@@ -2008,6 +2255,40 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
                 {!reqsBusy && requirements.length > 0 && (
                   <div style={{ marginTop: 22 }} className="rq-fade">
                     <div className="rq-scope-approved"><CheckCircle size={15} /> Requirements ready — {requirements.length} binary requirement{requirements.length !== 1 ? "s" : ""} defined</div>
+
+                    {/* Buying channel selector */}
+                    <div style={{ marginTop: 20, marginBottom: 20 }}>
+                      <div className="rq-section-label" style={{ marginBottom: 6 }}>Buying channel</div>
+                      <p className="rq-hint" style={{ marginBottom: 12 }}>
+                        {buyingChannel === "sole-source"
+                          ? "Sole source suggested — your scope references a specific vendor or proprietary system. Override below if needed."
+                          : "Competitive bid suggested based on your scope. Override below if needed."}
+                      </p>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        {[
+                          { id: "competitive-bid", label: "Competitive Bid", desc: "Full RFx process, multiple vendors, evaluation and scoring." },
+                          { id: "sole-source",     label: "Sole Source",     desc: "Single vendor, direct negotiation, no competitive process." },
+                        ].map(ch => (
+                          <div
+                            key={ch.id}
+                            onClick={() => doSelectChannel(ch.id)}
+                            style={{
+                              flex: 1, minWidth: 180, padding: "14px 16px",
+                              background: buyingChannel === ch.id ? "#FFF7ED" : "#FFFFFF",
+                              border: `1.5px solid ${buyingChannel === ch.id ? "#C2410C" : "rgba(0,0,0,0.07)"}`,
+                              borderRadius: 8, cursor: "pointer", transition: "all .15s",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                              <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${buyingChannel === ch.id ? "#C2410C" : "#D1D5DB"}`, background: buyingChannel === ch.id ? "#C2410C" : "transparent", flexShrink: 0 }} />
+                              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 12, fontWeight: 700, color: buyingChannel === ch.id ? "#C2410C" : "#374151" }}>{ch.label}</div>
+                            </div>
+                            <div style={{ fontFamily: "'Lora',serif", fontSize: 11, color: "#6B7280", lineHeight: 1.5, paddingLeft: 22 }}>{ch.desc}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="rq-actions">
                       <button className="rq-btn-primary" onClick={() => { setView("questions"); doGenerateQuestions(); }}>Generate questions <ChevronRight size={13} /></button>
                     </div>
