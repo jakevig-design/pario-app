@@ -124,6 +124,25 @@ _style.textContent = `
 
   /* ── Progress ── */
   .rq-progress{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+
+  /* ── Step progress bar ── */
+  .rq-step-bar{display:flex;align-items:center;gap:0;padding:10px 20px;background:#FFFFFF;border-bottom:1px solid rgba(0,0,0,0.05);overflow-x:auto;flex-shrink:0}
+  .rq-step-item{display:flex;align-items:center;gap:0;flex-shrink:0}
+  .rq-step-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;flex-shrink:0;transition:all .2s}
+  .rq-step-dot.done{background:#FFF7ED;color:#C2410C;border:1.5px solid #FDBA74}
+  .rq-step-dot.active{background:#C2410C;color:#FFFFFF;border:1.5px solid #C2410C}
+  .rq-step-dot.locked{background:#F3F4F6;color:#D1D5DB;border:1.5px solid #E5E7EB}
+  .rq-step-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;white-space:nowrap}
+  .rq-step-label.done{color:#C2410C}
+  .rq-step-label.active{color:#111827}
+  .rq-step-label.locked{color:#D1D5DB}
+  .rq-step-connector{width:20px;height:1px;background:#E5E7EB;margin:0 4px;flex-shrink:0}
+  .rq-step-connector.done{background:#FDBA74}
+
+  /* ── Mobile viewport fix for chat keyboard ── */
+  @supports(height: 100dvh){
+    .rq-root{min-height:100dvh}
+  }
   .rq-pb-wrap{flex:1;height:3px;background:rgba(0,0,0,0.06);border-radius:2px;overflow:hidden}
   .rq-pb{height:100%;background:#C2410C;border-radius:2px;transition:width .5s ease}
   .rq-pb-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:#9CA3AF;white-space:nowrap}
@@ -1050,6 +1069,18 @@ export default function RequirementsAgent() {
   const isSkipped = (val) => val.trim().toLowerCase() === "skip";
   const allFlagResponsesFilled = scopeFlags.every((_, idx) => (flagResponses[idx] || "").trim().length > 0);
 
+  // Unsaved changes warning on close/navigate away
+  useEffect(() => {
+    const handler = (e) => {
+      if (isDirty.current && formalScope) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [formalScope]);
+
   useEffect(() => { isDirty.current = true; }, [projectTitle, answers, formalScope, requirements, questions, activities]);
 
   // Auth + tenant config loading
@@ -1763,28 +1794,25 @@ Example format:
         {NAV_VIEWS.map((v, i) => {
           const isScope = v === "scope";
           const locked = !formalScope && !isScope;
-          if (locked) return null;
           return (
             <div key={v}
-              className={`rq-nav-item ${view === v ? "active" : ""}`}
-              onClick={() => { setView(v); setSidebarOpen(false); }}
+              className={`rq-nav-item ${view === v ? "active" : ""} ${locked ? "locked" : ""}`}
+              onClick={() => { if (!locked) { setView(v); setSidebarOpen(false); } }}
+              title={locked ? "Complete your scope first" : ""}
+              style={{ opacity: locked ? 0.35 : 1, cursor: locked ? "default" : "pointer" }}
             >
               <div className="rq-nav-num">{i + 1}</div>
               {NAV_LABELS[i]}
             </div>
           );
         })}
-        {formalScope && (
-          <>
-            <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "10px 0" }} />
-            <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => setView("sessions")}>
-              <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Projects
-            </div>
-            <div className="rq-nav-item" onClick={() => { resetSession(); setSidebarOpen(false); }}>
-              <div className="rq-nav-num"><Plus size={9} /></div>New session
-            </div>
-          </>
-        )}
+        <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "10px 0" }} />
+        <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => { setView("sessions"); setSidebarOpen(false); }}>
+          <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Projects
+        </div>
+        <div className="rq-nav-item" onClick={() => { resetSession(); setSidebarOpen(false); }}>
+          <div className="rq-nav-num"><Plus size={9} /></div>New project
+        </div>
         <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "10px 0" }} />
         <div className="rq-nav-item" onClick={() => { setView("splash"); setSidebarOpen(false); }}>
           <div className="rq-nav-num"><ArrowLeft size={9} /></div>Home
@@ -1818,34 +1846,62 @@ Example format:
   );
 
   const topbar = (
-    <div className="rq-topbar">
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <button className="rq-hamburger" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect y="3" width="18" height="2" rx="1" fill="currentColor"/><rect y="8" width="18" height="2" rx="1" fill="currentColor"/><rect y="13" width="18" height="2" rx="1" fill="currentColor"/></svg>
-        </button>
-        <div className="rq-topbar-left">
-          <div className="rq-topbar-title">{topbarTitles[view] || stepLabels[step]}</div>
-          <div className="rq-topbar-sub">{topbarSubs[view] || ""}</div>
+    <div>
+      <div className="rq-topbar">
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button className="rq-hamburger" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect y="3" width="18" height="2" rx="1" fill="currentColor"/><rect y="8" width="18" height="2" rx="1" fill="currentColor"/><rect y="13" width="18" height="2" rx="1" fill="currentColor"/></svg>
+          </button>
+          <div className="rq-topbar-left">
+            <div className="rq-topbar-title">{projectTitle || topbarTitles[view] || "Untitled project"}</div>
+            <div className="rq-topbar-sub">{topbarTitles[view] || ""}</div>
+          </div>
+        </div>
+        <div className="rq-topbar-right">
+          <div className={`sv-status ${saveStatus === "idle" ? "" : saveStatus}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            {saveStatus === "saving" && <><Loader size={11} className="spin" /> Saving…</>}
+            {saveStatus === "saved" && <span className="rq-save-chip"><CheckCircle size={11} /> Saved</span>}
+            {saveStatus === "error" && <span style={{ color: "#e07070" }}>Save failed</span>}
+            {saveStatus === "idle" && lastSaved && <span style={{ color: "#9CA3AF" }}><Clock size={11} style={{ display: "inline", marginRight: 4 }} />{lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
+          </div>
+          {view !== "sessions" && view !== "splash" && (
+            <>
+              <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
+              <button className="rq-btn-icon rq-btn-del" onClick={doDeleteCurrentSession} title="Delete this project"><Trash2 size={13} /></button>
+            </>
+          )}
+          {view !== "sessions" && view !== "splash" && (
+            <button className="rq-export-btn" onClick={doExport} disabled={!formalScope || exportBusy}>
+              {exportBusy ? <Loader size={14} className="spin" /> : <FileText size={14} />} <span>Export .docx</span>
+            </button>
+          )}
         </div>
       </div>
-      <div className="rq-topbar-right">
-        <div className={`sv-status ${saveStatus === "idle" ? "" : saveStatus}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, display: "flex", alignItems: "center", gap: 6 }}>
-          {saveStatus === "saving" && <><Loader size={11} className="spin" /> Saving…</>}
-          {saveStatus === "saved" && <span className="rq-save-chip"><CheckCircle size={11} /> Saved</span>}
-          {saveStatus === "error" && <span style={{ color: "#e07070" }}>Save failed</span>}
-          {saveStatus === "idle" && lastSaved && <span style={{ color: "#9CA3AF" }}><Clock size={11} style={{ display: "inline", marginRight: 4 }} />{lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
+      {/* Step progress bar — only shown inside a project */}
+      {view !== "sessions" && view !== "splash" && (
+        <div className="rq-step-bar">
+          {NAV_VIEWS.map((v, i) => {
+            const isActive = view === v;
+            const isDone = NAV_VIEWS.indexOf(view) > i;
+            const isLocked = !formalScope && v !== "scope";
+            const state = isLocked ? "locked" : isDone ? "done" : isActive ? "active" : "locked";
+            return (
+              <div key={v} className="rq-step-item">
+                {i > 0 && <div className={`rq-step-connector ${isDone || (NAV_VIEWS.indexOf(view) >= i) ? "done" : ""}`} />}
+                <div
+                  className={`rq-step-dot ${state}`}
+                  onClick={() => { if (!isLocked) setView(v); }}
+                  style={{ cursor: isLocked ? "default" : "pointer" }}
+                  title={isLocked ? "Complete scope first" : NAV_LABELS[i]}
+                >
+                  {isDone ? "✓" : i + 1}
+                </div>
+                {isActive && <span className={`rq-step-label ${state}`}>{NAV_LABELS[i]}</span>}
+              </div>
+            );
+          })}
         </div>
-        <button className="rq-btn-ghost" onClick={() => { resetSession(); setView("scope"); }} style={{ whiteSpace: "nowrap" }}><Plus size={11} /> New project</button>
-        {view !== "sessions" && view !== "splash" && (
-          <>
-            <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
-            <button className="rq-btn-icon rq-btn-del" onClick={doDeleteCurrentSession} title="Delete this project"><Trash2 size={13} /></button>
-          </>
-        )}
-        <button className="rq-export-btn" onClick={doExport} disabled={!formalScope || exportBusy}>
-          {exportBusy ? <Loader size={14} className="spin" /> : <FileText size={14} />} <span>Export .docx</span>
-        </button>
-      </div>
+      )}
     </div>
   );
 
@@ -2181,7 +2237,7 @@ Example format:
                     />
                     <div className="rq-actions">
                       <button className="rq-btn-primary" onClick={doStartChat} disabled={!allAnswered || chatBusy || scopeBusy}>
-                        {chatBusy ? <><Loader size={13} className="spin" /> Thinking…</> : <>Let's go <ChevronRight size={13} /></>}
+                        {chatBusy ? <><Loader size={13} className="spin" /> Thinking…</> : <>Begin <ChevronRight size={13} /></>}
                       </button>
                     </div>
                   </>
@@ -2247,7 +2303,7 @@ Example format:
                       </div>
                     )}
                     <div style={{ marginTop: 10 }}>
-                      <button className="rq-btn-ghost" style={{ fontSize: 10 }} onClick={() => { setChatMessages([]); setChatInput(""); }}>
+                      <button className="rq-btn-ghost" style={{ fontSize: 10 }} onClick={() => { if (window.confirm("Start over? Your conversation will be lost.")) { setChatMessages([]); setChatInput(""); } }}>
                         ← Start over
                       </button>
                     </div>
@@ -2259,7 +2315,7 @@ Example format:
                   <div style={{ marginTop: 16 }} className="rq-fade">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <div className="rq-section-label" style={{ marginBottom: 0 }}>Here's what I captured</div>
-                      <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { setChatMessages([]); setScopeBullets([]); setChatInput(""); }}><RefreshCw size={10} /> Start over</button>
+                      <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { if (window.confirm("Start over? Your conversation and bullet points will be lost.")) { setChatMessages([]); setScopeBullets([]); setChatInput(""); } }}><RefreshCw size={10} /> Start over</button>
                     </div>
                     <p className="rq-hint" style={{ marginBottom: 14 }}>Click any point to edit it. Add or remove points, then generate your scope.</p>
                     <div style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
@@ -2365,7 +2421,7 @@ Example format:
                       <div style={{ marginTop: 14 }} className="rq-fade">
                         <div className="rq-scope-approved"><CheckCircle size={15} /> Scope approved — all criteria met</div>
                         <div className="rq-actions">
-                          <button className="rq-btn-primary" onClick={() => { doGenerateReqs(); setView("requirements"); }}>Go to Requirements <ChevronRight size={13} /></button>
+                          <button className="rq-btn-primary" onClick={() => { doGenerateReqs(); setView("requirements"); }}>Continue to Requirements <ChevronRight size={13} /></button>
                         </div>
                       </div>
                     )}
