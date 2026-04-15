@@ -748,7 +748,7 @@ const FIVE_WS = [
 ];
 
 // ─── DocX Export ──────────────────────────────────────────────────────────────
-async function buildDocx({ sessionId, projectTitle, formalScope, narrative, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus }) {
+async function buildDocx({ sessionId, projectTitle, formalScope, narrative, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus, userProfile }) {
   const b = { style: BorderStyle.SINGLE, size: 1, color: "D4CCC4" };
   const borders = { top: b, bottom: b, left: b, right: b };
   const cm = { top: 90, bottom: 90, left: 130, right: 130 };
@@ -809,7 +809,8 @@ async function buildDocx({ sessionId, projectTitle, formalScope, narrative, requ
       properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
       children: [
         new Paragraph({ children: [new TextRun({ text: projectTitle || "Requirements Document", bold: true, size: 56, font: "Arial", color: "1A1714" })] }),
-        new Paragraph({ children: [new TextRun({ text: `Generated: ${new Date().toLocaleDateString()}`, font: "Arial", size: 18, color: "9A8E82" })] }),
+        new Paragraph({ children: [new TextRun({ text: `Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, font: "Arial", size: 18, color: "9A8E82" })] }),
+        ...(userProfile ? [new Paragraph({ children: [new TextRun({ text: `Prepared by: ${[userProfile.name, userProfile.title, userProfile.department, userProfile.tenant_config?.brand_name || userProfile.tenant_config?.company_name].filter(Boolean).join(", ")}`, font: "Arial", size: 18, color: "9A8E82" })] })] : []),
         new Paragraph({ children: [new TextRun("")] }),
         new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: "1. Business Case", font: "Arial" })] }),
         ...narrativeParas,
@@ -1012,6 +1013,7 @@ export default function RequirementsAgent() {
               ...p,
               companyProfile: {
                 name: tc.company_name,
+                brandName: tc.brand_name || tc.company_name,
                 vertical: tc.vertical,
                 subVertical: tc.sub_vertical,
                 employeeCount: tc.employee_count,
@@ -1527,7 +1529,7 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
   const doExport = async () => {
     setExportBusy(true); setExportErr("");
     try {
-      await buildDocx({ sessionId, projectTitle, formalScope, narrative, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus });
+      await buildDocx({ sessionId, projectTitle, formalScope, narrative, requirements, questions, activities, rfpStart, goLive, vendors, vendorStatus, userProfile });
       await doSave("complete");
     } catch { setExportErr("Export failed. Please try again."); }
     finally { setExportBusy(false); }
@@ -1595,8 +1597,11 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
               <div style={{ marginBottom: 52 }}>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 14 }}>BuyRight · by Acuity Sourcing</div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 38, fontWeight: 800, color: "#111827", lineHeight: 1.12, marginBottom: 16 }}>Build the business case.<br />Own the conversation.</div>
+                <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#C2410C", lineHeight: 1.6, marginBottom: 12, fontStyle: "italic" }}>
+                  "Software buying moves pretty fast. If you don't stop and define what you need, vendors will define it for you."
+                </div>
                 <div style={{ fontFamily: "'Lora',serif", fontSize: 16, color: "#6B7280", lineHeight: 1.75, marginBottom: 28, maxWidth: 560 }}>
-                  Every software purchase starts the same way — a vendor fills the gap in your thinking before you've had a chance to define it yourself. BuyRight changes that. It gives any business leader the structured thinking required to evaluate software on their own terms, not the vendor's.
+                  BuyRight gives any business leader the structured thinking required to evaluate software on their own terms, not the vendor's.
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <button className="rq-btn-primary" style={{ padding: "13px 28px", fontSize: 13 }} onClick={resetSession}>
@@ -1649,6 +1654,11 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
       <div className={`rq-sidebar ${sidebarOpen ? "open" : ""}`}>
       <div className="rq-sidebar-logo" style={{ cursor: "pointer", padding: "16px 20px" }} onClick={() => setView("splash")}>
         <div className="rq-sidebar-brand">BuyRight</div>
+        {answers.companyProfile?.brandName && (
+          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#374151", marginTop: 3, letterSpacing: ".01em" }}>
+            {answers.companyProfile.brandName}
+          </div>
+        )}
       </div>
       <div className="rq-nav">
         {NAV_VIEWS.map((v, i) => {
@@ -2027,31 +2037,46 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
                       <div className="rq-section-label" style={{ marginBottom: 0 }}>Here's what I captured</div>
                       <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { setChatMessages([]); setScopeBullets([]); setChatInput(""); }}><RefreshCw size={10} /> Start over</button>
                     </div>
-                    <p className="rq-hint" style={{ marginBottom: 12 }}>Edit anything that's not right, then create your scope.</p>
-                    {scopeBullets.map((bullet, idx) => (
-                      <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
-                        <div style={{ color: "#C2410C", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, flexShrink: 0 }}>•</div>
+                    <p className="rq-hint" style={{ marginBottom: 14 }}>Click any point to edit it. Add or remove points, then generate your scope.</p>
+                    <div style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+                      {scopeBullets.map((bullet, idx) => (
+                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: idx < scopeBullets.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
+                          <div style={{ color: "#C2410C", fontSize: 16, flexShrink: 0, lineHeight: 1 }}>·</div>
+                          {editId === `bullet-${idx}` ? (
+                            <input
+                              autoFocus
+                              className="rq-input"
+                              style={{ flex: 1, padding: "4px 8px", fontSize: 13 }}
+                              value={bullet}
+                              onChange={e => { const b = [...scopeBullets]; b[idx] = e.target.value; setScopeBullets(b); }}
+                              onBlur={() => setEditId(null)}
+                              onKeyDown={e => e.key === "Enter" && setEditId(null)}
+                            />
+                          ) : (
+                            <div
+                              onClick={() => setEditId(`bullet-${idx}`)}
+                              style={{ flex: 1, fontFamily: "'Lora',serif", fontSize: 13, color: "#374151", lineHeight: 1.55, cursor: "text", padding: "2px 0" }}
+                            >
+                              {bullet}
+                            </div>
+                          )}
+                          <button className="rq-btn-icon rq-btn-del" onClick={() => setScopeBullets(p => p.filter((_, i) => i !== idx))} style={{ flexShrink: 0, opacity: 0.4 }}><X size={11} /></button>
+                        </div>
+                      ))}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px" }}>
+                        <div style={{ color: "#D1D5DB", fontSize: 16, flexShrink: 0, lineHeight: 1 }}>+</div>
                         <input
                           className="rq-input"
-                          value={bullet}
-                          onChange={e => { const b = [...scopeBullets]; b[idx] = e.target.value; setScopeBullets(b); }}
-                          style={{ flex: 1 }}
+                          style={{ flex: 1, padding: "4px 8px", fontSize: 13, border: "none", background: "transparent", outline: "none", color: "#9CA3AF" }}
+                          placeholder="Add a point…"
+                          id="newBulletInput"
+                          onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setScopeBullets(p => [...p, e.target.value.trim()]); e.target.value = ""; }}}
                         />
-                        <button className="rq-btn-icon rq-btn-del" onClick={() => setScopeBullets(p => p.filter((_, i) => i !== idx))} style={{ flexShrink: 0 }}><X size={11} /></button>
                       </div>
-                    ))}
-                    <div style={{ display: "flex", gap: 8, marginTop: 8, marginBottom: 16 }}>
-                      <input
-                        className="rq-input"
-                        placeholder="Add a point…"
-                        id="newBulletInput"
-                        onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setScopeBullets(p => [...p, e.target.value.trim()]); e.target.value = ""; }}}
-                      />
-                      <button className="rq-btn-ghost" style={{ whiteSpace: "nowrap" }} onClick={() => { const el = document.getElementById("newBulletInput"); if (el?.value.trim()) { setScopeBullets(p => [...p, el.value.trim()]); el.value = ""; }}}><Plus size={11} /> Add</button>
                     </div>
                     <div className="rq-actions">
                       <button className="rq-btn-primary" onClick={doGenerateScope} disabled={scopeBusy || scopeBullets.length === 0}>
-                        {scopeBusy ? <><Loader size={13} className="spin" /> Creating scope…</> : <>Create scope <ChevronRight size={13} /></>}
+                        {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
                       </button>
                     </div>
                   </div>
@@ -2061,41 +2086,6 @@ Return ONLY valid JSON, no markdown — an object keyed by requirement ID:
                 <style>{`@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}`}</style>
 
                 {scopeErr && <div className="rq-error">{scopeErr}</div>}
-
-                {/* Bullet review — always visible once chat completes, even after scope generated */}
-                {scopeBullets.length > 0 && (
-                  <div style={{ marginTop: 16, marginBottom: formalScope ? 24 : 0 }} className="rq-fade">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <div className="rq-section-label" style={{ marginBottom: 0 }}>Key points</div>
-                      <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { setChatMessages([]); setScopeBullets([]); setChatInput(""); setFormalScope(""); setScopeApproved(false); setScopeFlags([]); setExpertQuestions([]); }}><RefreshCw size={10} /> Start over</button>
-                    </div>
-                    {scopeBullets.map((bullet, idx) => (
-                      <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
-                        <div style={{ color: "#C2410C", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, flexShrink: 0 }}>•</div>
-                        <input
-                          className="rq-input"
-                          value={bullet}
-                          onChange={e => { const b = [...scopeBullets]; b[idx] = e.target.value; setScopeBullets(b); }}
-                          style={{ flex: 1 }}
-                        />
-                        <button className="rq-btn-icon rq-btn-del" onClick={() => setScopeBullets(p => p.filter((_, i) => i !== idx))} style={{ flexShrink: 0 }}><X size={11} /></button>
-                      </div>
-                    ))}
-                    <div style={{ display: "flex", gap: 8, marginTop: 8, marginBottom: 14 }}>
-                      <input className="rq-input" placeholder="Add a point…" id="newBulletInput"
-                        onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setScopeBullets(p => [...p, e.target.value.trim()]); e.target.value = ""; }}} />
-                      <button className="rq-btn-ghost" style={{ whiteSpace: "nowrap" }} onClick={() => { const el = document.getElementById("newBulletInput"); if (el?.value.trim()) { setScopeBullets(p => [...p, el.value.trim()]); el.value = ""; }}}><Plus size={11} /> Add</button>
-                    </div>
-                    {!formalScope && (
-                      <div className="rq-actions">
-                        <button className="rq-btn-primary" onClick={doGenerateScope} disabled={scopeBusy || scopeBullets.length === 0}>
-                          {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {formalScope && (
                   <div style={{ marginTop: 4 }} className="rq-fade">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
