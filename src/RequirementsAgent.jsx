@@ -1118,7 +1118,7 @@ export default function RequirementsAgent() {
   const resetSession = () => {
     setSessionId(genId());
     setProjectTitle("");
-    setAnswers({ who: "", what: "", where: "", when: "", why: "", freeform: "", companyName: "", companyProfile: null });
+    setAnswers(prev => ({ who: "", what: "", where: "", when: "", why: "", freeform: "", companyName: prev.companyName || "", companyProfile: prev.companyProfile || null }));
     setCompanyLookupBusy(false);
     setCompanyLookupErr("");
     setNarrative("");
@@ -1835,9 +1835,13 @@ Example format:
           {saveStatus === "error" && <span style={{ color: "#e07070" }}>Save failed</span>}
           {saveStatus === "idle" && lastSaved && <span style={{ color: "#9CA3AF" }}><Clock size={11} style={{ display: "inline", marginRight: 4 }} />{lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
         </div>
-        <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
-        <button className="rq-btn-ghost" onClick={() => { resetSession(); setView("scope"); }} style={{ whiteSpace: "nowrap" }}><Plus size={11} /> New</button>
-        <button className="rq-btn-icon rq-btn-del" onClick={doDeleteCurrentSession} title="Delete this project"><Trash2 size={13} /></button>
+        <button className="rq-btn-ghost" onClick={() => { resetSession(); setView("scope"); }} style={{ whiteSpace: "nowrap" }}><Plus size={11} /> New project</button>
+        {view !== "sessions" && view !== "splash" && (
+          <>
+            <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
+            <button className="rq-btn-icon rq-btn-del" onClick={doDeleteCurrentSession} title="Delete this project"><Trash2 size={13} /></button>
+          </>
+        )}
         <button className="rq-export-btn" onClick={doExport} disabled={!formalScope || exportBusy}>
           {exportBusy ? <Loader size={14} className="spin" /> : <FileText size={14} />} <span>Export .docx</span>
         </button>
