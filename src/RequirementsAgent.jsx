@@ -996,7 +996,7 @@ export default function RequirementsAgent() {
 
   useEffect(() => {
     setSessionsLoading(true);
-    loadSessions().then(rows => { setSessionsList(rows); setSessionsLoading(false); });
+    loadSessions(authUser?.id).then(rows => { setSessionsList(rows); setSessionsLoading(false); });
   }, []);
 
   // Auth + tenant config loading
@@ -1098,12 +1098,12 @@ export default function RequirementsAgent() {
     const userId = authUser?.id || null;
     const tenantId = userProfile?.tenant_id || null;
     const ok = await saveSession({ id: sessionId, projectTitle: projectTitle || "Untitled", status, data: getSessionData(), userId, tenantId });
-    if (ok) { setSaveStatus("saved"); setLastSaved(new Date()); isDirty.current = false; loadSessions().then(setSessionsList); setTimeout(() => setSaveStatus("idle"), 2500); }
+    if (ok) { setSaveStatus("saved"); setLastSaved(new Date()); isDirty.current = false; loadSessions(authUser?.id).then(setSessionsList); setTimeout(() => setSaveStatus("idle"), 2500); }
     else { setSaveStatus("error"); setTimeout(() => setSaveStatus("idle"), 3000); }
   };
 
   const doLoadSession = async (id) => {
-    const row = await loadSession(id);
+    const row = await loadSession(id, authUser?.id);
     if (!row?.data) return;
     const d = row.data;
     setSessionId(id);
@@ -1143,13 +1143,13 @@ export default function RequirementsAgent() {
   const doDeleteSession = async (id, e) => {
     e.stopPropagation();
     if (!window.confirm("Delete this project?")) return;
-    await deleteSession(id);
+    await deleteSession(id, authUser?.id);
     setSessionsList(p => p.filter(s => s.id !== id));
   };
 
   const doDeleteCurrentSession = async () => {
     if (!window.confirm(`Delete "${projectTitle || "this project"}"? This cannot be undone.`)) return;
-    await deleteSession(sessionId);
+    await deleteSession(sessionId, authUser?.id);
     setSessionsList(p => p.filter(s => s.id !== sessionId));
     resetSession();
     setView("sessions");
