@@ -730,7 +730,7 @@ async function buildDocx({ sessionId, projectTitle, formalScope, narrative, requ
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `${projectTitle ? projectTitle.replace(/[^a-zA-Z0-9_-]/g, "_") : "BuyRight"}.docx`);
+  saveAs(blob, `${projectTitle ? projectTitle.replace(/[^a-zA-Z0-9_-]/g, "_") : "Clearpath"}.docx`);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -808,7 +808,7 @@ function LoginScreen({ onUnconfirmed }) {
   return (
     <div className="rq-root" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 400, padding: "0 24px" }}>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 8 }}>BuyRight</div>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 8 }}>Clearpath</div>
         <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 800, color: "#111827", marginBottom: 6 }}>
           {mode === "signup" ? "Create your account" : "Welcome back"}
         </div>
@@ -872,6 +872,9 @@ export default function RequirementsAgent() {
   const [chatMessages, setChatMessages] = useState([]); // [{role, content}]
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [bulletsCollapsed, setBulletsCollapsed] = useState(false);
+  const [continuingChat, setContinuingChat] = useState(false);
   const [scopeFlags, setScopeFlags] = useState([]);
   const [flagResponses, setFlagResponses] = useState({});
   const [scopeApproved, setScopeApproved] = useState(false);
@@ -1016,6 +1019,9 @@ export default function RequirementsAgent() {
     setBulletsApproved(false);
     setChatMessages([]);
     setChatInput("");
+    setChatCollapsed(false);
+    setBulletsCollapsed(false);
+    setContinuingChat(false);
     setScopeFlags([]);
     setFlagResponses({});
     setScopeApproved(false);
@@ -1167,7 +1173,7 @@ export default function RequirementsAgent() {
               p.description && `About: ${p.description}`,
             ].filter(Boolean).join("\n");
           })()),
-          user: newMessages.map(m => `${m.role === "user" ? "User" : "BuyRight"}: ${m.content}`).join("\n\n"),
+          user: newMessages.map(m => `${m.role === "user" ? "User" : "Clearpath"}: ${m.content}`).join("\n\n"),
           model: "claude-haiku-4-5-20251001",
         }),
         signal: controller.signal,
@@ -1203,6 +1209,9 @@ export default function RequirementsAgent() {
             const bullets = JSON.parse(arrMatch[0]);
             if (Array.isArray(bullets) && bullets.length > 0) {
               setScopeBullets(bullets);
+              setChatCollapsed(true);
+              setBulletsCollapsed(false);
+              setContinuingChat(false);
               return;
             }
           } catch { /* fall through to render as message */ }
@@ -1217,12 +1226,12 @@ export default function RequirementsAgent() {
         .replace(/^#+\s+/gm, "")
         .trim();
 
-      // If the reply accidentally contains conversation history, extract only the last BuyRight line
+      // If the reply accidentally contains conversation history, extract only the last Clearpath line
       const lines = clean.split("\n").filter(Boolean);
-      const lastBuyRight = [...lines].reverse().find(l => !l.startsWith("User:") && !l.startsWith("BuyRight:"));
-      const finalContent = lastBuyRight
-        ? lastBuyRight.replace(/^BuyRight:\s*/i, "").trim()
-        : clean.replace(/^BuyRight:\s*/i, "").trim();
+      const lastClearpath = [...lines].reverse().find(l => !l.startsWith("User:") && !l.startsWith("Clearpath:"));
+      const finalContent = lastClearpath
+        ? lastClearpath.replace(/^Clearpath:\s*/i, "").trim()
+        : clean.replace(/^Clearpath:\s*/i, "").trim();
 
       setChatMessages(prev => [...prev, { role: "assistant", content: finalContent }]);
     } catch (e) {
@@ -1262,6 +1271,7 @@ export default function RequirementsAgent() {
       const userMsg = companyCtx ? `${companyCtx}\n\nApproved scope bullets:\n${bulletText}` : `Scope bullets:\n${bulletText}`;
       const scope = await callClaude(P_SCOPE_GENERATE, userMsg);
       setFormalScope(scope.trim());
+      setBulletsCollapsed(true);
       await doEvaluateScope(scope.trim());
     } catch { setScopeErr("Could not generate scope. Please try again."); }
     finally { setScopeBusy(false); }
@@ -1599,7 +1609,7 @@ Example format:
     market: "Market Research", timeline: "Timeline", summary: "Summary",
   };
   const topbarSubs = {
-    splash: "BuyRight", sessions: "All projects",
+    splash: "Clearpath", sessions: "All projects",
     scope: projectTitle || "Untitled project",
     requirements: projectTitle || "Untitled project",
     questions: projectTitle || "Untitled project",
@@ -1648,7 +1658,7 @@ Example format:
         <div className="rq-shell">
           <div className="rq-sidebar">
             <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
-              <div className="rq-sidebar-brand">BuyRight</div>
+              <div className="rq-sidebar-brand">Clearpath</div>
               {tenantBrandName && (
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#374151", marginTop: 3 }}>{tenantBrandName}</div>
               )}
@@ -1669,14 +1679,14 @@ Example format:
               {/* Hero */}
               <div style={{ marginBottom: 52 }}>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 14 }}>
-                  BuyRight{tenantBrandName ? ` · ${tenantBrandName}` : ""}
+                  Clearpath{tenantBrandName ? ` · ${tenantBrandName}` : ""}
                 </div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 38, fontWeight: 800, color: "#111827", lineHeight: 1.12, marginBottom: 16 }}>Build the business case.<br />Own the conversation.</div>
                 <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#C2410C", lineHeight: 1.6, marginBottom: 12, fontStyle: "italic" }}>
                   "Software buying moves pretty fast. If you don't stop and define what you need, vendors will define it for you."
                 </div>
                 <div style={{ fontFamily: "'Lora',serif", fontSize: 16, color: "#6B7280", lineHeight: 1.75, marginBottom: 28, maxWidth: 560 }}>
-                  BuyRight gives any business leader the structured thinking required to evaluate software on their own terms, not the vendor's.
+                  Clearpath gives any business leader the structured thinking required to evaluate software on their own terms, not the vendor's.
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <button className="rq-btn-primary" style={{ padding: "13px 28px", fontSize: 13 }} onClick={resetSession}>
@@ -1710,9 +1720,9 @@ Example format:
               {/* Footer */}
               <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", paddingTop: 28, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
                 <div style={{ fontFamily: "'Lora',serif", fontSize: 12, color: "#9CA3AF", lineHeight: 1.7, maxWidth: 420 }}>
-                  BuyRight encodes 20 years of software buying experience into a structured workflow. The methodology is simple: define what you need before vendors tell you what you want.
+                  Clearpath encodes 20 years of software buying experience into a structured workflow. The methodology is simple: define what you need before vendors tell you what you want.
                 </div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#D1D5DB", paddingTop: 4 }}>BuyRight</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#D1D5DB", paddingTop: 4 }}>Clearpath</div>
               </div>
 
             </div>
@@ -1728,7 +1738,7 @@ Example format:
       <div className={`rq-sidebar-overlay ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
       <div className={`rq-sidebar ${sidebarOpen ? "open" : ""}`}>
       <div className="rq-sidebar-logo" style={{ cursor: "pointer", padding: "16px 20px" }} onClick={() => setView("splash")}>
-        <div className="rq-sidebar-brand">BuyRight</div>
+        <div className="rq-sidebar-brand">Clearpath</div>
         {tenantBrandName && (
           <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#374151", marginTop: 3, letterSpacing: ".01em" }}>
             {tenantBrandName}
@@ -2182,15 +2192,17 @@ Example format:
             {/* ── Scope ── */}
             {view === "scope" && (
               <div className="rq-fade">
+
+                {/* Editable project title */}
                 <div className="rq-section-label" style={{ marginBottom: 6 }}>Project title</div>
                 <input className="rq-input" style={{ marginBottom: 22 }} placeholder="e.g. Enterprise HR Management System" value={projectTitle} onChange={e => setProjectTitle(e.target.value)} />
 
                 <div className="rq-section-label" style={{ marginBottom: 8 }}>What business problem are you trying to solve?</div>
-                <p className="rq-hint" style={{ marginBottom: 12 }}>Describe what you need in your own words — the system, the problem, who will use it, any deadlines or constraints, and what's out of scope. The more context you provide, the better the output.</p>
 
-                {/* Initial free-form — only shown before chat starts */}
-                {chatMessages.length === 0 && (
+                {/* ── Stage 1: Initial textarea — before chat starts ── */}
+                {chatMessages.length === 0 && !scopeBullets.length && !formalScope && (
                   <>
+                    <p className="rq-hint" style={{ marginBottom: 12 }}>Describe what you need in your own words — the system, the problem, who will use it, any deadlines or constraints, and what's out of scope. The more context you provide, the better the output.</p>
                     <textarea
                       className="rq-textarea"
                       placeholder="e.g. Our HR team manages payroll, benefits, and employee records across three legacy systems that don't talk to each other. We need a single platform to consolidate these by end of 2026. Recruiting and performance management are out of scope..."
@@ -2207,140 +2219,158 @@ Example format:
                   </>
                 )}
 
-                {/* Chat conversation */}
-                {chatMessages.length > 0 && !scopeBullets.length && (
-                  <div style={{ marginTop: 4 }} className="rq-fade">
-                    {/* Message thread */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-                      {chatMessages.map((msg, idx) => (
-                        <div key={idx} style={{ display: "flex", gap: 10, justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end" }}>
-                          {msg.role === "assistant" && (
-                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#FFF7ED", border: "1px solid #FDBA74", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginBottom: 2 }}>
-                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C2410C" }} />
-                            </div>
-                          )}
-                          <div style={{
-                            maxWidth: "78%",
-                            padding: "10px 14px",
-                            borderRadius: msg.role === "user" ? "14px 14px 3px 14px" : "3px 14px 14px 14px",
-                            background: msg.role === "user" ? "#FFF7ED" : "#FFFFFF",
-                            border: msg.role === "user" ? "1px solid #FDBA74" : "1px solid rgba(0,0,0,0.07)",
-                            fontSize: 13,
-                            lineHeight: 1.55,
-                            color: msg.role === "user" ? "#7C2D12" : "#374151",
-                            fontFamily: "'Lora',serif",
-                          }}>
-                            {msg.content}
-                          </div>
-                        </div>
-                      ))}
-                      {chatBusy && (
-                        <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#FFF7ED", border: "1px solid #FDBA74", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C2410C" }} />
-                          </div>
-                          <div style={{ padding: "10px 14px", borderRadius: "3px 14px 14px 14px", background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", display: "flex", gap: 4, alignItems: "center" }}>
-                            {[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: "#D1D5DB", animation: `pulse 1.2s ease-in-out ${i*0.2}s infinite` }} />)}
-                          </div>
-                        </div>
-                      )}
+                {/* ── Stage 2: Active chat OR collapsed chat history ── */}
+                {chatMessages.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    {/* Collapsible header */}
+                    <div
+                      onClick={() => setChatCollapsed(p => !p)}
+                      style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", marginBottom: chatCollapsed ? 0 : 12, userSelect: "none" }}
+                    >
+                      {chatCollapsed ? <ChevronDown size={11} style={{ color: "#9CA3AF" }} /> : <ChevronUp size={11} style={{ color: "#9CA3AF" }} />}
+                      <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: "#9CA3AF" }}>
+                        {chatCollapsed ? `View conversation (${chatMessages.length} messages)` : "Conversation"}
+                      </span>
                     </div>
-                    {/* Reply input */}
-                    {!chatBusy && (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <input
-                          className="rq-input"
-                          style={{ flex: 1, borderRadius: 24, padding: "10px 16px" }}
-                          placeholder="Reply… (type 'skip' to skip this question)"
-                          value={chatInput}
-                          onChange={e => setChatInput(e.target.value)}
-                          onKeyDown={e => e.key === "Enter" && !e.shiftKey && doSendChatMessage(chatInput)}
-                          autoFocus
-                        />
-                        <button
-                          onClick={() => doSendChatMessage(chatInput)}
-                          disabled={!chatInput.trim()}
-                          style={{ width: 38, height: 38, borderRadius: "50%", background: chatInput.trim() ? "#C2410C" : "#F3F4F6", border: "none", cursor: chatInput.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s" }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke={chatInput.trim() ? "#fff" : "#9CA3AF"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </button>
-                      </div>
-                    )}
-                    <div style={{ marginTop: 10 }}>
-                      <button className="rq-btn-ghost" style={{ fontSize: 10 }} onClick={() => { if (window.confirm("Start over? Your conversation will be lost.")) { setChatMessages([]); setChatInput(""); } }}>
-                        ← Start over
-                      </button>
-                    </div>
-                  </div>
-                )}
 
-                {/* Bullet review after chat completes */}
-                {scopeBullets.length > 0 && !formalScope && (
-                  <div style={{ marginTop: 16 }} className="rq-fade">
-
-                    {/* Collapsed chat history */}
-                    {chatMessages.length > 0 && (
-                      <details style={{ marginBottom: 16 }}>
-                        <summary style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: "#9CA3AF", cursor: "pointer", userSelect: "none", listStyle: "none", display: "flex", alignItems: "center", gap: 6 }}>
-                          <ChevronDown size={11} /> View conversation ({chatMessages.length} messages)
-                        </summary>
-                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8, paddingLeft: 4 }}>
+                    {/* Chat messages */}
+                    {!chatCollapsed && (
+                      <div className="rq-fade">
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
                           {chatMessages.map((msg, idx) => (
-                            <div key={idx} style={{ display: "flex", gap: 8, justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
-                              <div style={{ maxWidth: "80%", padding: "8px 12px", borderRadius: msg.role === "user" ? "14px 3px 14px 14px" : "3px 14px 14px 14px", background: msg.role === "user" ? "#FFF7ED" : "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", fontFamily: "'Lora',serif", fontSize: 12, color: "#374151", lineHeight: 1.5 }}>
+                            <div key={idx} style={{ display: "flex", gap: 10, justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end" }}>
+                              {msg.role === "assistant" && (
+                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#FFF7ED", border: "1px solid #FDBA74", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginBottom: 2 }}>
+                                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C2410C" }} />
+                                </div>
+                              )}
+                              <div style={{
+                                maxWidth: "78%", padding: "10px 14px",
+                                borderRadius: msg.role === "user" ? "14px 14px 3px 14px" : "3px 14px 14px 14px",
+                                background: msg.role === "user" ? "#FFF7ED" : "#FFFFFF",
+                                border: msg.role === "user" ? "1px solid #FDBA74" : "1px solid rgba(0,0,0,0.07)",
+                                fontSize: 13, lineHeight: 1.55, color: msg.role === "user" ? "#7C2D12" : "#374151",
+                                fontFamily: "'Lora',serif",
+                              }}>
                                 {msg.content}
                               </div>
                             </div>
                           ))}
-                        </div>
-                      </details>
-                    )}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <div className="rq-section-label" style={{ marginBottom: 0 }}>Here's what I captured</div>
-                      <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { if (window.confirm("Start over? Your conversation and bullet points will be lost.")) { setChatMessages([]); setScopeBullets([]); setChatInput(""); } }}><RefreshCw size={10} /> Start over</button>
-                    </div>
-                    <p className="rq-hint" style={{ marginBottom: 14 }}>Click any point to edit it. Add or remove points, then generate your scope.</p>
-                    <div style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
-                      {scopeBullets.map((bullet, idx) => (
-                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: idx < scopeBullets.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
-                          <div style={{ color: "#C2410C", fontSize: 16, flexShrink: 0, lineHeight: 1 }}>·</div>
-                          {editId === `bullet-${idx}` ? (
-                            <input
-                              autoFocus
-                              className="rq-input"
-                              style={{ flex: 1, padding: "4px 8px", fontSize: 13 }}
-                              value={bullet}
-                              onChange={e => { const b = [...scopeBullets]; b[idx] = e.target.value; setScopeBullets(b); }}
-                              onBlur={() => setEditId(null)}
-                              onKeyDown={e => e.key === "Enter" && setEditId(null)}
-                            />
-                          ) : (
-                            <div
-                              onClick={() => setEditId(`bullet-${idx}`)}
-                              style={{ flex: 1, fontFamily: "'Lora',serif", fontSize: 13, color: "#374151", lineHeight: 1.55, cursor: "text", padding: "2px 0" }}
-                            >
-                              {bullet}
+                          {chatBusy && (
+                            <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#FFF7ED", border: "1px solid #FDBA74", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#C2410C" }} />
+                              </div>
+                              <div style={{ padding: "10px 14px", borderRadius: "3px 14px 14px 14px", background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", display: "flex", gap: 4, alignItems: "center" }}>
+                                {[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: "#D1D5DB", animation: `pulse 1.2s ease-in-out ${i*0.2}s infinite` }} />)}
+                              </div>
                             </div>
                           )}
-                          <button className="rq-btn-icon rq-btn-del" onClick={() => setScopeBullets(p => p.filter((_, i) => i !== idx))} style={{ flexShrink: 0, opacity: 0.4 }}><X size={11} /></button>
                         </div>
-                      ))}
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px" }}>
-                        <div style={{ color: "#D1D5DB", fontSize: 16, flexShrink: 0, lineHeight: 1 }}>+</div>
-                        <input
-                          className="rq-input"
-                          style={{ flex: 1, padding: "4px 8px", fontSize: 13, border: "none", background: "transparent", outline: "none", color: "#9CA3AF" }}
-                          placeholder="Add a point…"
-                          id="newBulletInput"
-                          onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setScopeBullets(p => [...p, e.target.value.trim()]); e.target.value = ""; }}}
-                        />
+
+                        {/* Reply input — shown when chat is active (no bullets yet) OR continuing */}
+                        {(!scopeBullets.length || continuingChat) && !chatBusy && (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+                            <input
+                              className="rq-input"
+                              style={{ flex: 1, borderRadius: 24, padding: "10px 16px" }}
+                              placeholder="Reply… (type 'skip' to skip this question)"
+                              value={chatInput}
+                              onChange={e => setChatInput(e.target.value)}
+                              onKeyDown={e => e.key === "Enter" && !e.shiftKey && doSendChatMessage(chatInput)}
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => doSendChatMessage(chatInput)}
+                              disabled={!chatInput.trim()}
+                              style={{ width: 38, height: 38, borderRadius: "50%", background: chatInput.trim() ? "#C2410C" : "#F3F4F6", border: "none", cursor: chatInput.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .15s" }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke={chatInput.trim() ? "#fff" : "#9CA3AF"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Actions below chat */}
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {scopeBullets.length > 0 && !continuingChat && (
+                            <button className="rq-btn-ghost" style={{ fontSize: 10 }} onClick={() => { setContinuingChat(true); setChatCollapsed(false); }}>
+                              + Continue conversation
+                            </button>
+                          )}
+                          <button className="rq-btn-ghost" style={{ fontSize: 10 }} onClick={() => {
+                            if (window.confirm("Restart intake? This will clear the conversation, bullets, and scope.")) {
+                              setChatMessages([]); setScopeBullets([]); setFormalScope(""); setScopeApproved(false);
+                              setScopeFlags([]); setExpertQuestions([]); setChatInput(""); setChatCollapsed(false);
+                              setBulletsCollapsed(false); setContinuingChat(false); setAnswers(p => ({ ...p, freeform: "" }));
+                            }
+                          }}>
+                            ↺ Restart intake
+                          </button>
+                        </div>
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Stage 3: Bullet review ── */}
+                {scopeBullets.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    {/* Collapsible header */}
+                    <div
+                      onClick={() => setBulletsCollapsed(p => !p)}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginBottom: bulletsCollapsed ? 0 : 10, userSelect: "none" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {bulletsCollapsed ? <ChevronDown size={11} style={{ color: "#9CA3AF" }} /> : <ChevronUp size={11} style={{ color: "#9CA3AF" }} />}
+                        <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: "#9CA3AF" }}>
+                          {bulletsCollapsed ? `View bullets (${scopeBullets.length} points)` : "Here's what I captured"}
+                        </span>
+                      </div>
+                      {!bulletsCollapsed && (
+                        <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={e => { e.stopPropagation(); if (window.confirm("Restart intake? This will clear the conversation, bullets, and scope.")) { setChatMessages([]); setScopeBullets([]); setFormalScope(""); setScopeApproved(false); setScopeFlags([]); setExpertQuestions([]); setChatInput(""); setChatCollapsed(false); setBulletsCollapsed(false); setContinuingChat(false); setAnswers(p => ({ ...p, freeform: "" })); } }}>↺ Restart intake</button>
+                      )}
                     </div>
-                    <div className="rq-actions">
-                      <button className="rq-btn-primary" onClick={doGenerateScope} disabled={scopeBusy || scopeBullets.length === 0}>
-                        {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
-                      </button>
-                    </div>
+
+                    {!bulletsCollapsed && (
+                      <div className="rq-fade">
+                        <p className="rq-hint" style={{ marginBottom: 14 }}>Click any point to edit it. Add or remove points, then generate your scope.</p>
+                        <div style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+                          {scopeBullets.map((bullet, idx) => (
+                            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: idx < scopeBullets.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
+                              <div style={{ color: "#C2410C", fontSize: 16, flexShrink: 0, lineHeight: 1 }}>·</div>
+                              {editId === `bullet-${idx}` ? (
+                                <input autoFocus className="rq-input" style={{ flex: 1, padding: "4px 8px", fontSize: 13 }}
+                                  value={bullet}
+                                  onChange={e => { const b = [...scopeBullets]; b[idx] = e.target.value; setScopeBullets(b); }}
+                                  onBlur={() => setEditId(null)}
+                                  onKeyDown={e => e.key === "Enter" && setEditId(null)}
+                                />
+                              ) : (
+                                <div onClick={() => setEditId(`bullet-${idx}`)} style={{ flex: 1, fontFamily: "'Lora',serif", fontSize: 13, color: "#374151", lineHeight: 1.55, cursor: "text", padding: "2px 0" }}>
+                                  {bullet}
+                                </div>
+                              )}
+                              <button className="rq-btn-icon rq-btn-del" onClick={() => setScopeBullets(p => p.filter((_, i) => i !== idx))} style={{ flexShrink: 0, opacity: 0.4 }}><X size={11} /></button>
+                            </div>
+                          ))}
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px" }}>
+                            <div style={{ color: "#D1D5DB", fontSize: 16, flexShrink: 0, lineHeight: 1 }}>+</div>
+                            <input className="rq-input"
+                              style={{ flex: 1, padding: "4px 8px", fontSize: 13, border: "none", background: "transparent", outline: "none", color: "#9CA3AF" }}
+                              placeholder="Add a point…"
+                              onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setScopeBullets(p => [...p, e.target.value.trim()]); e.target.value = ""; }}}
+                            />
+                          </div>
+                        </div>
+                        {!formalScope && (
+                          <div className="rq-actions">
+                            <button className="rq-btn-primary" onClick={doGenerateScope} disabled={scopeBusy || scopeBullets.length === 0}>
+                              {scopeBusy ? <><Loader size={13} className="spin" /> Generating scope…</> : <>Generate scope <ChevronRight size={13} /></>}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -2357,7 +2387,7 @@ Example format:
                           <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { setFormalScope(prevScope); setPrevScope(null); setScopeApproved(false); setScopeFlags([]); }}>↩ Undo</button>
                         )}
                         {scopeBullets.length > 0 && !editingScope && (
-                          <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={doGenerateScope} disabled={scopeBusy}><RefreshCw size={10} /> Regenerate</button>
+                          <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { setBulletsCollapsed(false); doGenerateScope(); }} disabled={scopeBusy}><RefreshCw size={10} /> Regenerate</button>
                         )}
                       </div>
                     </div>
