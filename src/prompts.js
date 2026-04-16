@@ -1,6 +1,6 @@
 // src/prompts.js
 // ─────────────────────────────────────────────────────────────
-// All BuyRight AI prompts in one place.
+// All Clearpath AI prompts in one place.
 // Edit prompts here without touching UI code.
 // ─────────────────────────────────────────────────────────────
 
@@ -13,7 +13,7 @@ ${companyContext}
 
 This means: do NOT ask what industry they're in, whether they're regulated, what their tech stack is, or anything else already answered above. Jump straight to what you don't know yet — the specifics of this particular software purchase.` : "";
 
-  return `You are BuyRight, a smart intake assistant helping a business leader define what they need before buying software. Your ONLY job is to ask clarifying questions and then output a structured bullet list when you have enough information.${contextBlock}
+  return `You are Clearpath, a smart intake assistant helping a business leader define what they need before buying software. Your ONLY job is to ask clarifying questions and then output a structured bullet list when you have enough information.${contextBlock}
 
 STRICT RULES:
 - Ask ONE question at a time — never multiple questions in one message
