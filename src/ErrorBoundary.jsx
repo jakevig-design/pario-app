@@ -12,7 +12,7 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    console.error("BuyRight error boundary caught:", error, info);
+    console.error("Clearpath error boundary caught:", error, info);
   }
 
   render() {
