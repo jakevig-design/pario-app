@@ -1193,29 +1193,38 @@ export default function RequirementsAgent() {
         return;
       }
 
-      // Strict DONE detection — must start with DONE on its own line
-      const doneMatch = reply.match(/^DONE\s*\n([\s\S]*)/);
+      // DONE detection — catch DONE anywhere in the reply followed by a JSON array
+      const doneMatch = reply.match(/DONE\s*\n?([\s\S]*?\[[\s\S]*?\])/);
       if (doneMatch) {
         const jsonPart = doneMatch[1].trim();
         const arrMatch = jsonPart.match(/\[[\s\S]*\]/);
         if (arrMatch) {
           try {
             const bullets = JSON.parse(arrMatch[0]);
-            setScopeBullets(Array.isArray(bullets) ? bullets : []);
-            setChatMessages(prev => [...prev, { role: "assistant", content: "Got it — here's what I captured. Edit anything before generating your scope." }]);
-            return;
-          } catch { /* fall through */ }
+            if (Array.isArray(bullets) && bullets.length > 0) {
+              setScopeBullets(bullets);
+              return;
+            }
+          } catch { /* fall through to render as message */ }
         }
       }
 
       // Strip all markdown formatting from conversational replies
       const clean = reply
-        .replace(/\*\*(.*?)\*\*/g, "$1")  // bold
-        .replace(/\*(.*?)\*/g, "$1")       // italic
-        .replace(/`(.*?)`/g, "$1")         // inline code
-        .replace(/^#+\s+/gm, "")           // headers
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/\*(.*?)\*/g, "$1")
+        .replace(/`(.*?)`/g, "$1")
+        .replace(/^#+\s+/gm, "")
         .trim();
-      setChatMessages(prev => [...prev, { role: "assistant", content: clean }]);
+
+      // If the reply accidentally contains conversation history, extract only the last BuyRight line
+      const lines = clean.split("\n").filter(Boolean);
+      const lastBuyRight = [...lines].reverse().find(l => !l.startsWith("User:") && !l.startsWith("BuyRight:"));
+      const finalContent = lastBuyRight
+        ? lastBuyRight.replace(/^BuyRight:\s*/i, "").trim()
+        : clean.replace(/^BuyRight:\s*/i, "").trim();
+
+      setChatMessages(prev => [...prev, { role: "assistant", content: finalContent }]);
     } catch (e) {
       const msg = e.name === "AbortError" ? "Request timed out — please try again." : "Something went wrong — please try again.";
       setChatMessages(prev => [...prev, { role: "assistant", content: msg }]);
@@ -1746,9 +1755,6 @@ Example format:
         <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => { setView("sessions"); setSidebarOpen(false); }}>
           <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Projects
         </div>
-        <div className="rq-nav-item" onClick={() => { resetSession(); setSidebarOpen(false); }}>
-          <div className="rq-nav-num"><Plus size={9} /></div>New project
-        </div>
         <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "10px 0" }} />
         <div className="rq-nav-item" onClick={() => { setView("splash"); setSidebarOpen(false); }}>
           <div className="rq-nav-num"><ArrowLeft size={9} /></div>Home
@@ -2271,6 +2277,24 @@ Example format:
                 {/* Bullet review after chat completes */}
                 {scopeBullets.length > 0 && !formalScope && (
                   <div style={{ marginTop: 16 }} className="rq-fade">
+
+                    {/* Collapsed chat history */}
+                    {chatMessages.length > 0 && (
+                      <details style={{ marginBottom: 16 }}>
+                        <summary style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: "#9CA3AF", cursor: "pointer", userSelect: "none", listStyle: "none", display: "flex", alignItems: "center", gap: 6 }}>
+                          <ChevronDown size={11} /> View conversation ({chatMessages.length} messages)
+                        </summary>
+                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8, paddingLeft: 4 }}>
+                          {chatMessages.map((msg, idx) => (
+                            <div key={idx} style={{ display: "flex", gap: 8, justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
+                              <div style={{ maxWidth: "80%", padding: "8px 12px", borderRadius: msg.role === "user" ? "14px 3px 14px 14px" : "3px 14px 14px 14px", background: msg.role === "user" ? "#FFF7ED" : "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", fontFamily: "'Lora',serif", fontSize: 12, color: "#374151", lineHeight: 1.5 }}>
+                                {msg.content}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <div className="rq-section-label" style={{ marginBottom: 0 }}>Here's what I captured</div>
                       <button className="rq-btn-ghost" style={{ fontSize: 9 }} onClick={() => { if (window.confirm("Start over? Your conversation and bullet points will be lost.")) { setChatMessages([]); setScopeBullets([]); setChatInput(""); } }}><RefreshCw size={10} /> Start over</button>
