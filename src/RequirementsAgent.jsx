@@ -959,7 +959,19 @@ export default function RequirementsAgent() {
 
   // Auth + tenant config loading
   useEffect(() => {
-    getSession().then(session => {
+    const IS_DEMO_SUBDOMAIN = window.location.hostname === 'demo.planwithpario.com';
+
+    getSession().then(async session => {
+      // Auto sign-in for demo subdomain if no session exists
+      if (!session && IS_DEMO_SUBDOMAIN) {
+        const { data, error } = await signIn('test@acme.com', 'test');
+        if (!error && data?.user) {
+          setAuthUser(data.user);
+        }
+        setAuthLoading(false);
+        return;
+      }
+
       const user = session?.user || null;
       setAuthUser(user);
       setAuthLoading(false);
@@ -989,7 +1001,7 @@ export default function RequirementsAgent() {
             setAnswers(p => ({ ...p, companyProfile }));
 
             // Demo tenant — sign out on browser close so session never persists
-            if (profile.tenant_id === 'demo') {
+            if (profile.tenant_id === 'demo' || profile.tenant_id === 'acme') {
               window.addEventListener('beforeunload', () => { signOut(); });
             }
           }
@@ -2548,9 +2560,9 @@ Example format:
                         </div>
                       </div>
                     )}
-                    {formalScope && !scopeApproved && !editingScope && !scopeBusy && scopeFlags.length === 0 && (
-                      <div style={{ marginTop: 14, textAlign: "right" }}>
-                        <button className="rq-btn-ghost" style={{ fontSize: 11 }} onClick={() => setView("requirements")}>Skip to Requirements <ChevronRight size={13} /></button>
+                    {formalScope && !scopeApproved && !editingScope && !scopeBusy && (
+                      <div style={{ marginTop: 14 }} className="rq-actions">
+                        <button className="rq-btn-primary" onClick={() => setView("requirements")}>Generate Requirements <ChevronRight size={13} /></button>
                       </div>
                     )}
                     {expertQuestions.length > 0 && !scopeApproved && !editingScope && (
