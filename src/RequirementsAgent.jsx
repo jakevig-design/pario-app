@@ -2544,8 +2544,13 @@ Example format:
                       <div style={{ marginTop: 14 }} className="rq-fade">
                         <div className="rq-scope-approved"><CheckCircle size={15} /> Scope approved — all criteria met</div>
                         <div className="rq-actions">
-                          <button className="rq-btn-primary" onClick={() => setView("requirements")}>Continue to Requirements <ChevronRight size={13} /></button>
+                          <button className="rq-btn-primary" onClick={() => setView("requirements")}>Generate Requirements <ChevronRight size={13} /></button>
                         </div>
+                      </div>
+                    )}
+                    {formalScope && !scopeApproved && !editingScope && !scopeBusy && scopeFlags.length === 0 && (
+                      <div style={{ marginTop: 14, textAlign: "right" }}>
+                        <button className="rq-btn-ghost" style={{ fontSize: 11 }} onClick={() => setView("requirements")}>Skip to Requirements <ChevronRight size={13} /></button>
                       </div>
                     )}
                     {expertQuestions.length > 0 && !scopeApproved && !editingScope && (
