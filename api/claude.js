@@ -60,11 +60,16 @@ function getSupabase() {
 
 function estimateCost(model, inputTokens = 0, outputTokens = 0) {
   const pricing = {
-    'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
-    'claude-sonnet-4-5': { input: 3.00, output: 15.00 },
-    'claude-opus-4-5': { input: 15.00, output: 75.00 },
+    'claude-sonnet-4-6':          { input: 3.00,  output: 15.00 },
+    'claude-haiku-4-5-20251001':  { input: 1.00,  output: 5.00  },
+    'claude-opus-4-6':            { input: 5.00,  output: 25.00 },
+    // Open model estimates (Together AI / Groq)
+    'meta-llama/Llama-3.3-70B-Instruct-Turbo': { input: 0.88, output: 0.88 },
+    'meta-llama/Llama-3.1-8B-Instruct-Turbo':  { input: 0.18, output: 0.18 },
+    'llama-3.3-70b-versatile':    { input: 0.59,  output: 0.79  },
+    'llama-3.1-8b-instant':       { input: 0.05,  output: 0.08  },
   };
-  const p = pricing[model] || pricing['claude-sonnet-4-5'];
+  const p = pricing[model] || pricing['claude-sonnet-4-6'];
   return ((inputTokens / 1_000_000) * p.input) + ((outputTokens / 1_000_000) * p.output);
 }
 
@@ -97,7 +102,113 @@ async function checkTenantBudget(tenantId) {
   } catch (e) { return { allowed: true }; }
 }
 
-// ── Anthropic caller with retry ───────────────────────────────
+// ── Provider configuration ────────────────────────────────────
+// To switch providers, change ACTIVE_PROVIDER and set the
+// corresponding API key in Vercel environment variables.
+// Supported: 'anthropic' | 'together' | 'groq'
+const ACTIVE_PROVIDER = process.env.LLM_PROVIDER || 'anthropic';
+
+const PROVIDER_CONFIG = {
+  anthropic: {
+    url: 'https://api.anthropic.com/v1/messages',
+    apiKey: () => process.env.ANTHROPIC_API_KEY,
+    headers: (key) => ({ 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }),
+    // Model name mapping: Pario internal name → Anthropic model ID
+    models: {
+      default: 'claude-sonnet-4-6',
+      fast:    'claude-haiku-4-5-20251001',
+      strong:  'claude-sonnet-4-6',
+    },
+    // Normalize response to { text, inputTokens, outputTokens }
+    parseResponse: (data) => ({
+      text: (data.content || []).filter(b => b.type === 'text').map(b => b.text).join(''),
+      inputTokens: data.usage?.input_tokens,
+      outputTokens: data.usage?.output_tokens,
+      stopReason: data.stop_reason,
+    }),
+    // Build request body from Pario's normalized format
+    buildBody: (model, maxTokens, system, messages) => ({ model, max_tokens: maxTokens, system: system ?? '', messages }),
+  },
+
+  together: {
+    url: 'https://api.together.xyz/v1/chat/completions',
+    apiKey: () => process.env.TOGETHER_API_KEY,
+    headers: (key) => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }),
+    models: {
+      default: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+      fast:    'meta-llama/Llama-3.1-8B-Instruct-Turbo',
+      strong:  'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    },
+    parseResponse: (data) => ({
+      text: data.choices?.[0]?.message?.content || '',
+      inputTokens: data.usage?.prompt_tokens,
+      outputTokens: data.usage?.completion_tokens,
+      stopReason: data.choices?.[0]?.finish_reason,
+    }),
+    buildBody: (model, maxTokens, system, messages) => ({
+      model, max_tokens: maxTokens,
+      messages: [{ role: 'system', content: system ?? '' }, ...messages],
+    }),
+  },
+
+  groq: {
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    apiKey: () => process.env.GROQ_API_KEY,
+    headers: (key) => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }),
+    models: {
+      default: 'llama-3.3-70b-versatile',
+      fast:    'llama-3.1-8b-instant',
+      strong:  'llama-3.3-70b-versatile',
+    },
+    parseResponse: (data) => ({
+      text: data.choices?.[0]?.message?.content || '',
+      inputTokens: data.usage?.prompt_tokens,
+      outputTokens: data.usage?.completion_tokens,
+      stopReason: data.choices?.[0]?.finish_reason,
+    }),
+    buildBody: (model, maxTokens, system, messages) => ({
+      model, max_tokens: maxTokens,
+      messages: [{ role: 'system', content: system ?? '' }, ...messages],
+    }),
+  },
+};
+
+// ── Generic LLM caller with retry ────────────────────────────
+async function callLLM({ system, messages, modelTier = 'default', maxTokens, providerOverride } = {}, retries = 3) {
+  const providerName = providerOverride || ACTIVE_PROVIDER;
+  const provider = PROVIDER_CONFIG[providerName];
+  if (!provider) throw new Error(`Unknown provider: ${providerName}`);
+
+  const apiKey = provider.apiKey();
+  if (!apiKey) throw new Error(`Missing API key for provider: ${providerName}`);
+
+  const model = provider.models[modelTier] || provider.models.default;
+  const headers = provider.headers(apiKey);
+  const body = provider.buildBody(model, maxTokens, system, messages);
+
+  let lastData, lastStatus;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    if (attempt > 0) await sleep(attempt * 3000);
+    const response = await fetch(provider.url, { method: 'POST', headers, body: JSON.stringify(body) });
+    lastData = await response.json();
+    lastStatus = response.status;
+    if (response.status === 429) continue;
+    return {
+      data: lastData,
+      status: lastStatus,
+      ok: response.ok,
+      parsed: response.ok ? provider.parseResponse(lastData) : null,
+      model,
+      provider: providerName,
+    };
+  }
+  return { data: lastData, status: lastStatus, ok: false, parsed: null, model, provider: providerName };
+}
+
+// ── Legacy Anthropic caller — kept for web search calls ───────
+// Web search uses Anthropic-specific beta headers and isn't
+// abstracted yet. When open model web search is available,
+// migrate this to callLLM with a webSearch option.
 async function callAnthropic(headers, body, retries = 3) {
   let lastData, lastStatus;
   for (let attempt = 0; attempt < retries; attempt++) {
@@ -120,7 +231,6 @@ const ALLOWED_ORIGINS = [
   'https://agent.acuitysourcing.com',
   'https://www.jvtestspace.com',
   'https://jvtestspace.com',
-  'https://pario.acuitysourcing.com',
 ];
 
 // ── Main handler ──────────────────────────────────────────────
@@ -162,15 +272,14 @@ export default async function handler(req, res) {
     const baseHeaders = { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' };
 
     if (!useWebSearch) {
-      const model = modelOverride || 'claude-sonnet-4-5';
-      const { data, status, ok } = await callAnthropic(baseHeaders, {
-        model, max_tokens: getTokenBudget(system), system: system ?? '',
-        messages: [{ role: 'user', content: user }],
+      const modelTier = modelOverride === 'fast' ? 'fast' : modelOverride === 'strong' ? 'strong' : 'default';
+      const maxTokens = getTokenBudget(system);
+      const { parsed, status, ok, model } = await callLLM({
+        system, messages: [{ role: 'user', content: user }], modelTier, maxTokens,
       });
-      if (!ok || data.error) return res.status(status).json(data);
-      logUsage({ userId, tenantId, sessionId, callType: 'standard', model, inputTokens: data.usage?.input_tokens, outputTokens: data.usage?.output_tokens });
-      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-      return res.status(200).json({ content: [{ type: 'text', text }], stop_reason: data.stop_reason });
+      if (!ok || !parsed) return res.status(status).json({ error: { message: 'LLM call failed' } });
+      logUsage({ userId, tenantId, sessionId, callType: 'standard', model, inputTokens: parsed.inputTokens, outputTokens: parsed.outputTokens });
+      return res.status(200).json({ content: [{ type: 'text', text: parsed.text }], stop_reason: parsed.stopReason });
     }
 
     // Two-step market research
