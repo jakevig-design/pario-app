@@ -11,9 +11,16 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // ── In-memory rate limiter ────────────────────────────────────
 const rateLimitStore = new Map();
+
+// Standard limits for authenticated users
 const LIMITS = { perMinute: 10, perDay: 100 };
 
-function checkRateLimit(userId) {
+// Tighter limits for the demo tenant — covers one full auto-flow run
+// with room for a few regenerations, prevents abuse
+const DEMO_LIMITS = { perMinute: 5, perDay: 30 };
+const DEMO_TENANTS = ['acme', 'demo'];
+
+function checkRateLimit(userId, tenantId) {
   const now = Date.now();
   const minuteAgo = now - 60 * 1000;
   const dayAgo = now - 24 * 60 * 60 * 1000;
@@ -22,8 +29,18 @@ function checkRateLimit(userId) {
   const recent = calls.filter(t => t > dayAgo);
   rateLimitStore.set(userId, recent);
   const lastMinute = recent.filter(t => t > minuteAgo).length;
-  if (lastMinute >= LIMITS.perMinute) return { allowed: false, reason: 'rate_limit_minute', message: 'Too many requests — please wait a moment before trying again.' };
-  if (recent.length >= LIMITS.perDay) return { allowed: false, reason: 'rate_limit_day', message: 'You\'ve reached your daily usage limit. Resets in 24 hours.' };
+
+  // Apply tighter limits for demo tenants
+  const limits = DEMO_TENANTS.includes(tenantId) ? DEMO_LIMITS : LIMITS;
+
+  if (lastMinute >= limits.perMinute) return { allowed: false, reason: 'rate_limit_minute', message: 'Too many requests — please wait a moment before trying again.' };
+  if (recent.length >= limits.perDay) return {
+    allowed: false,
+    reason: 'rate_limit_day',
+    message: DEMO_TENANTS.includes(tenantId)
+      ? 'The demo has reached its daily limit. Visit app.planwithpario.com to create a free account.'
+      : 'You\'ve reached your daily usage limit. Resets in 24 hours.',
+  };
   recent.push(now);
   rateLimitStore.set(userId, recent);
   return { allowed: true };
@@ -256,7 +273,7 @@ export default async function handler(req, res) {
   const tenantId = req.headers['x-tenant-id'] || null;
   const sessionId = req.headers['x-session-id'] || null;
 
-  const rateCheck = checkRateLimit(userId);
+  const rateCheck = checkRateLimit(userId, tenantId);
   if (!rateCheck.allowed) return res.status(429).json({ error: { type: rateCheck.reason, message: rateCheck.message } });
 
   const budgetCheck = await checkTenantBudget(tenantId);
