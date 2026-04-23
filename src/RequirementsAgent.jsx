@@ -3,7 +3,7 @@ import { FileText, Plus, Trash2, Loader, ChevronRight, CheckCircle, Pencil, X, C
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, AlignmentType, HeadingLevel, LevelFormat } from "docx";
 import { saveSession, loadSessions, loadSession, deleteSession, signIn, signUp, signOut, getSession, onAuthStateChange, loadUserProfile, saveUserProfile, logEvent } from "./supabase";
-import { P_SCOPE_CHAT, P_SCOPE_GENERATE, P_SCOPE_EVALUATE, P_SCOPE_REFINE, P_SCOPE_EXPERT, P_REQS, P_QS, P_MARKET, P_NARRATIVE, FIVE_WS } from "./prompts";
+import { P_SCOPE_CHAT, P_SCOPE_GENERATE, P_SCOPE_EVALUATE, P_SCOPE_REFINE, P_SCOPE_EXPERT, P_REQS, P_QS, P_MARKET, P_NARRATIVE, P_TIMELINE_DATE, FIVE_WS } from "./prompts";
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 const _link = document.createElement("link");
@@ -635,12 +635,14 @@ async function buildDocx({ sessionId, projectTitle, formalScope, narrative, requ
   let alphaCounter = 0;
 
   const qChildren = [];
-  for (const req of requirements) {
-    const qs = questions[req.id] || [];
-    if (!qs.length) continue;
-    qChildren.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `${req.id}: ${req.text}`, font: "Arial" })] }));
-    qs.forEach(q => {
-      qChildren.push(new Paragraph({ numbering: { reference: "nums", level: 0 }, children: [new TextRun({ text: q.text, font: "Arial", size: 22 })] }));
+  // Support both new flat structure (questions.scope) and legacy per-requirement structure
+  const flatQuestions = questions.scope || [];
+  const legacyQuestions = !questions.scope && Object.keys(questions).length > 0;
+
+  if (flatQuestions.length > 0) {
+    qChildren.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: "Vendor Discovery Questions", font: "Arial" })] }));
+    flatQuestions.forEach((q, i) => {
+      qChildren.push(new Paragraph({ numbering: { reference: "nums", level: 0 }, children: [new TextRun({ text: `Q${i+1}: ${q.text}`, font: "Arial", size: 22 })] }));
       if (q.type === "multiple_choice" && q.options?.length) {
         const ref = `alpha-${alphaCounter++}`;
         numberingConfig.push({ reference: ref, levels: [{ level: 0, format: LevelFormat.LOWER_LETTER, text: "%1)", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] });
@@ -650,6 +652,23 @@ async function buildDocx({ sessionId, projectTitle, formalScope, narrative, requ
       }
       qChildren.push(new Paragraph({ children: [new TextRun("")] }));
     });
+  } else if (legacyQuestions) {
+    for (const req of requirements) {
+      const qs = questions[req.id] || [];
+      if (!qs.length) continue;
+      qChildren.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `${req.id}: ${req.text}`, font: "Arial" })] }));
+      qs.forEach(q => {
+        qChildren.push(new Paragraph({ numbering: { reference: "nums", level: 0 }, children: [new TextRun({ text: q.text, font: "Arial", size: 22 })] }));
+        if (q.type === "multiple_choice" && q.options?.length) {
+          const ref = `alpha-${alphaCounter++}`;
+          numberingConfig.push({ reference: ref, levels: [{ level: 0, format: LevelFormat.LOWER_LETTER, text: "%1)", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] });
+          q.options.forEach(opt => qChildren.push(new Paragraph({ numbering: { reference: ref, level: 0 }, children: [new TextRun({ text: opt, font: "Arial", size: 20, color: "5A5048" })] })));
+        } else {
+          qChildren.push(new Paragraph({ children: [new TextRun({ text: "[Open response]", font: "Arial", size: 20, italics: true, color: "9A8E82" })] }));
+        }
+        qChildren.push(new Paragraph({ children: [new TextRun("")] }));
+      });
+    }
   }
 
   const tlRows = [new TableRow({ children: [hCell("Activity", 3400), hCell("Start", 1900), hCell("End", 1900), hCell("Duration (days)", 2160)] })];
@@ -879,6 +898,8 @@ export default function RequirementsAgent() {
   const [narrativeBusy, setNarrativeBusy] = useState(false);
   const [formalScope, setFormalScope] = useState("");
   const [prevScope, setPrevScope] = useState(null); // versioning
+  const [isStale, setIsStale] = useState(false); // true when initial description changed post-generation
+  const [autoFlowing, setAutoFlowing] = useState(false); // true during auto-flow cascade
   const [execSummary, setExecSummary] = useState("");
   const [scopeBullets, setScopeBullets] = useState([]);
   const [bulletsApproved, setBulletsApproved] = useState(false);
@@ -923,6 +944,7 @@ export default function RequirementsAgent() {
   const [activities, setActivities] = useState(() => makeDefaultActivities(today()));
   const [buyingChannel, setBuyingChannel] = useState(null); // null | "competitive-bid" | "sole-source"
   const [channelSuggested, setChannelSuggested] = useState(false);
+  const [timelineDefaulted, setTimelineDefaulted] = useState(false); // true when 90-day default was applied
   const [collapsedGroups, setCollapsedGroups] = useState({ "Pre-RFx": false, "RFx": false, "Post-RFx": false });
   const [dragId, setDragId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
@@ -932,6 +954,7 @@ export default function RequirementsAgent() {
   // Export
   const [exportBusy, setExportBusy] = useState(false);
   const [exportErr, setExportErr] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   // Market research
   const [vendors, setVendors] = useState([]);
@@ -1439,30 +1462,14 @@ export default function RequirementsAgent() {
   const doGenerateQuestions = async () => {
     setQBusy(true); setQErr("");
     try {
-      const P_QS_BATCH = `You are a business analyst writing a vendor discovery questionnaire.
-
-For each requirement provided, generate 2-3 follow-up questions that unpack the implementation detail behind it.
-
-RULES:
-- Ask about specifics intentionally left out of the requirement (fields, methods, integrations, sub-features)
-- Use multiple choice when the answer space is finite and predictable
-- Use open-ended when the answer requires explanation or varies by vendor
-- Do not re-ask the requirement itself — assume the vendor said yes
-- Use the EXACT requirement ID as the key (e.g. if the ID is "R-F1", the key must be "R-F1")
-
-Return ONLY a valid JSON object. No markdown, no code fences, no explanation. Start with { and end with }.
-Example format:
-{"R-F1":[{"type":"open_ended","text":"..."},{"type":"multiple_choice","text":"...","options":["A","B","C"]}],"R-F2":[...]}`;
-
-      const reqPayload = requirements.map(r => `${r.id}: ${r.text}`).join("\n");
-      const raw = await callClaude(P_QS_BATCH, `Requirements:\n${reqPayload}`, false, null, getIdentity());
-
-      // Strip any markdown fences and parse
-      const clean = raw.replace(/```(?:json)?/g, "").replace(/```/g, "").trim();
-      const objMatch = clean.match(/\{[\s\S]*\}/);
-      if (!objMatch) throw new Error(`No JSON object found in response`);
-      const out = JSON.parse(objMatch[0]);
-      setQuestions(out);
+      const reqList = requirements.length > 0
+        ? `\n\nFunctional requirements:\n${requirements.map(r => r.text).join("\n")}`
+        : "";
+      const userMsg = `Project scope:\n${formalScope}${reqList}`;
+      const result = await callJSON(P_QS, userMsg, false, null, getIdentity());
+      // Store as flat array under a "scope" key for compatibility
+      setQuestions({ scope: result });
+      logEvent("questions_generated", { sessionId, userId: authUser?.id, tenantId: userProfile?.tenant_id, meta: { count: result.length } });
     } catch (e) {
       console.error("Question generation error:", e);
       setQErr("Could not generate questions. Please try again.");
@@ -1586,12 +1593,53 @@ Example format:
       const userMsg = `Project scope:\n${formalScope}${reqList}`;
       const result = await callJSON(P_MARKET(companyCtx), userMsg, false, "claude-haiku-4-5-20251001", getIdentity());
       setVendors(result);
-      setVendorStatus({});
+      // Auto-shortlist top 3 by requirements fit score
+      const sorted = [...result].sort((a, b) => {
+        const aScore = a.requirementsTotal > 0 ? a.requirementsMatch / a.requirementsTotal : 0;
+        const bScore = b.requirementsTotal > 0 ? b.requirementsMatch / b.requirementsTotal : 0;
+        if (bScore !== aScore) return bScore - aScore;
+        const confOrder = { high: 3, medium: 2, low: 1 };
+        return (confOrder[b.matchConfidence] || 0) - (confOrder[a.matchConfidence] || 0);
+      });
+      const autoStatus = {};
+      sorted.forEach((v, i) => { autoStatus[v.name] = i < 3 ? "shortlisted" : null; });
+      setVendorStatus(autoStatus);
       logEvent("market_research_run", { sessionId, userId: authUser?.id, tenantId: userProfile?.tenant_id, meta: { vendorCount: result.length } });
     } catch (e) {
       setMarketErr(`Market research failed: ${e.message}`);
     } finally {
       setMarketBusy(false);
+    }
+  };
+
+  const doExtractTimelineDate = async () => {
+    if (!scopeBullets.length && !formalScope) return;
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const bulletText = scopeBullets.length > 0
+        ? scopeBullets.map(b => `• ${b}`).join("\n")
+        : formalScope;
+      const result = await callJSON(P_TIMELINE_DATE, `Today's date: ${today}\n\nScope bullets:\n${bulletText}`, false, null, getIdentity());
+      if (result.hasDate && result.targetDate) {
+        setGoLive(result.targetDate);
+        // Set RFx start to today if not already set
+        if (!rfpStart) {
+          setRfpStart(today);
+        }
+        if (result.defaultUsed) {
+          setTimelineDefaulted(true);
+        }
+      } else {
+        // Default to 90 days from today
+        const defaultDate = new Date();
+        defaultDate.setDate(defaultDate.getDate() + 90);
+        setGoLive(defaultDate.toISOString().split('T')[0]);
+        if (!rfpStart) setRfpStart(today);
+        setTimelineDefaulted(true);
+      }
+    } catch (e) {
+      // Silent fail — timeline can be set manually
+      console.warn('Timeline date extraction failed:', e.message);
     }
   };
 
@@ -1616,12 +1664,54 @@ Example format:
     finally { setNarrativeBusy(false); }
   };
 
+  // ── Auto-flow: trigger full cascade after scope approval ────
+  const doAutoFlow = async () => {
+    if (!formalScope) return;
+
+    // Show a loading overlay on the sidebar during auto-flow
+    setAutoFlowing(true);
+
+    try {
+      // Step 1 — Requirements
+      setView("requirements");
+      await doGenerateReqs();
+
+      // Step 2 — Questions (single call, 5 questions)
+      setView("questions");
+      await doGenerateQuestions();
+
+      // Step 3 — Timeline date extraction (parallel-safe, no view change)
+      await doExtractTimelineDate();
+
+      // Step 4 — Market research
+      setView("market");
+      await doMarketResearch();
+
+      // Step 5 — Narrative (summary auto-generates on arrival)
+      setIsStale(false);
+      setView("summary");
+    } catch (e) {
+      console.error("Auto-flow error:", e);
+    } finally {
+      setAutoFlowing(false);
+    }
+  };
+
+  const StaleWarning = () => isStale ? (
+    <div style={{ background: "#FFF7ED", border: "1px solid rgba(194,65,12,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#C2410C", letterSpacing: ".06em" }}>
+        ⚠ Initial description changed — this content may not reflect your latest input.
+      </div>
+      <button className="rq-btn-ghost" style={{ fontSize: 11, flexShrink: 0 }} onClick={doAutoFlow}>Regenerate all →</button>
+    </div>
+  ) : null;
+
   // ── Auto-generate on tab arrival ──────────────────────────
   useEffect(() => {
     if (view === "requirements" && formalScope && requirements.length === 0 && !reqsBusy) {
       doGenerateReqs();
     }
-    if (view === "questions" && requirements.length > 0 && Object.keys(questions).length === 0 && !qBusy) {
+    if (view === "questions" && requirements.length > 0 && (!questions.scope || questions.scope.length === 0) && !qBusy) {
       doGenerateQuestions();
     }
     if (view === "market" && formalScope && vendors.length === 0 && !marketBusy) {
@@ -1659,12 +1749,156 @@ Example format:
     finally { setExportBusy(false); }
   };
 
+  const doExportPDF = async () => {
+    setPdfBusy(true);
+    try {
+      const shortlisted = vendors.filter(v => vendorStatus[v.name] === "shortlisted");
+      const logoUrl = userProfile?.tenant_config?.logo_url ||
+        (userProfile?.tenant_config?.website_url
+          ? `https://logo.clearbit.com/${new URL(userProfile.tenant_config.website_url).hostname}`
+          : 'https://www.planwithpario.com/pario-logo.png');
+
+      // Build PDF HTML content
+      const timelineStr = rfpStart && goLive
+        ? `${new Date(rfpStart + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} → ${new Date(goLive + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} (${Math.round(calDaysBetween(rfpStart, goLive) / 7)} weeks)`
+        : 'Dates not set';
+
+      const cleanScope = formalScope
+        .replace(/^#{1,3}\s+/gm, '')
+        .replace(/^[-*]\s+/gm, '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .trim();
+
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; font-size: 11pt; color: #1E293B; background: white; }
+  .page { padding: 48px 56px; max-width: 800px; margin: 0 auto; }
+  .cover { min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; padding: 64px 56px; }
+  .cover-logo { height: 36px; object-fit: contain; object-position: left; }
+  .cover-title { font-size: 32pt; font-weight: 700; color: #1E293B; letter-spacing: -0.02em; margin-bottom: 12px; line-height: 1.1; }
+  .cover-sub { font-size: 13pt; color: #64748B; margin-bottom: 8px; }
+  .cover-date { font-size: 10pt; color: #94A3B8; }
+  .cover-tag { display: inline-block; font-size: 9pt; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #C2410C; background: #FFF7ED; padding: 4px 10px; border-radius: 4px; margin-bottom: 24px; }
+  h1 { font-size: 16pt; font-weight: 700; color: #1E293B; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #C2410C; }
+  h2 { font-size: 12pt; font-weight: 700; color: #334155; margin: 20px 0 8px; }
+  p { font-size: 11pt; line-height: 1.7; color: #374151; margin-bottom: 10px; }
+  .req-row { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #F1F5F9; }
+  .req-id { font-size: 9pt; font-weight: 700; color: #C2410C; min-width: 40px; padding-top: 2px; }
+  .req-text { font-size: 10pt; color: #374151; line-height: 1.5; }
+  .vendor-card { border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+  .vendor-name { font-size: 12pt; font-weight: 700; color: #1E293B; }
+  .vendor-cat { font-size: 9pt; color: #94A3B8; margin-bottom: 6px; }
+  .vendor-desc { font-size: 10pt; color: #374151; line-height: 1.5; margin-bottom: 8px; }
+  .vendor-price { font-size: 10pt; font-weight: 600; color: #1E293B; background: #F8FAFC; padding: 5px 10px; border-radius: 4px; display: inline-block; }
+  .timeline-row { display: flex; gap: 16px; margin-bottom: 12px; }
+  .timeline-box { flex: 1; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 14px; }
+  .timeline-label { font-size: 8pt; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #94A3B8; margin-bottom: 4px; }
+  .timeline-val { font-size: 11pt; font-weight: 600; color: #1E293B; }
+  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; }
+  .footer-brand { font-size: 9pt; color: #94A3B8; }
+  .footer-date { font-size: 9pt; color: #94A3B8; }
+  .disclaimer { font-size: 8pt; color: #94A3B8; margin-top: 16px; line-height: 1.5; }
+  @media print { .page-break { page-break-before: always; } }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover">
+  <div>
+    <img src="${logoUrl}" class="cover-logo" onerror="this.src='https://www.planwithpario.com/pario-logo.png'" />
+  </div>
+  <div>
+    <div class="cover-tag">Software Evaluation Brief</div>
+    <div class="cover-title">${projectTitle || "Untitled Project"}</div>
+    <div class="cover-sub">${userProfile?.tenant_config?.company_name || userProfile?.tenant_config?.brand_name || ""}</div>
+    <div class="cover-date">Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+  </div>
+  <div style="font-size: 9pt; color: #94A3B8;">Prepared with Pario · planwithpario.com</div>
+</div>
+
+<!-- CONTENT -->
+<div class="page page-break">
+
+  <h1>Business Case</h1>
+  ${narrative ? narrative.split(/\n+/).filter(Boolean).map(p => `<p>${p}</p>`).join('') : '<p>Narrative not yet generated.</p>'}
+
+  <h1>Project Scope</h1>
+  ${cleanScope.split(/\n+/).filter(Boolean).map(p => `<p>${p}</p>`).join('')}
+
+  <h1>Functional Requirements</h1>
+  ${requirements.length > 0
+    ? requirements.map(r => `<div class="req-row"><div class="req-id">${r.id}</div><div class="req-text">${r.text}</div></div>`).join('')
+    : '<p>No requirements generated.</p>'
+  }
+
+  <h1>Vendor Shortlist</h1>
+  ${shortlisted.length > 0
+    ? shortlisted.map(v => `
+      <div class="vendor-card">
+        <div class="vendor-name">${v.name}</div>
+        <div class="vendor-cat">${v.category}</div>
+        <div class="vendor-desc">${v.description}</div>
+        ${v.estimatedPrice ? `<span class="vendor-price">${v.estimatedPrice} · ${v.pricingModel || ''}</span>` : ''}
+      </div>`).join('')
+    : '<p>No vendors shortlisted.</p>'
+  }
+
+  <h1>Buying Timeline</h1>
+  <div class="timeline-row">
+    <div class="timeline-box">
+      <div class="timeline-label">RFx Start</div>
+      <div class="timeline-val">${rfpStart ? new Date(rfpStart + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : '—'}</div>
+    </div>
+    <div class="timeline-box">
+      <div class="timeline-label">Go-Live</div>
+      <div class="timeline-val">${goLive ? new Date(goLive + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : '—'}</div>
+    </div>
+    <div class="timeline-box">
+      <div class="timeline-label">Duration</div>
+      <div class="timeline-val">${rfpStart && goLive ? Math.round(calDaysBetween(rfpStart, goLive) / 7) + ' weeks' : '—'}</div>
+    </div>
+  </div>
+  ${timelineDefaulted ? '<p style="font-size:9pt;color:#C2410C;margin-top:8px;">⚠ Timeline defaulted to 90 days — no deadline was provided during intake. Verify before sharing.</p>' : ''}
+
+  <div class="disclaimer">
+    Vendor pricing estimates are AI-generated based on publicly available market data and should be verified directly with vendors before use in budget planning or executive presentations.
+    ${timelineDefaulted ? ' Timeline end date was defaulted to 90 days from session date as no deadline was provided.' : ''}
+  </div>
+
+  <div class="footer">
+    <div class="footer-brand">Prepared with Pario · planwithpario.com</div>
+    <div class="footer-date">${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+      // Open in new window and trigger print to PDF
+      const win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+      win.onload = () => { win.print(); };
+      logEvent("pdf_exported", { sessionId, userId: authUser?.id, tenantId: userProfile?.tenant_id });
+    } catch (e) {
+      console.error('PDF export failed:', e);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const pct = (step / 3) * 100;
   const NAV_VIEWS = ["scope", "requirements", "questions", "market", "timeline", "summary"];
   const NAV_LABELS = ["Scope", "Requirements", "Questions", "Market", "Timeline", "Summary"];
   const answeredReqs = Object.keys(questions).length;
-  const openQ = Object.values(questions).flat().filter(q => q.type === "open_ended").length;
-  const mcQ = Object.values(questions).flat().filter(q => q.type === "multiple_choice").length;
+  const allQuestions = questions.scope || Object.values(questions).flat();
+  const openQ = allQuestions.filter(q => q.type === "open_ended").length;
+  const mcQ = allQuestions.filter(q => q.type === "multiple_choice").length;
 
   const topbarTitles = {
     splash: "Home", sessions: "Projects",
@@ -2009,6 +2243,14 @@ Example format:
             {/* ── Timeline ── */}
             {view === "timeline" && (
               <div className="rq-fade">
+                {timelineDefaulted && (
+                  <div style={{ background: "#FFF7ED", border: "1px solid rgba(194,65,12,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#C2410C" }}>
+                      No deadline was provided during intake. Timeline defaults to 90 days from today. Adjust the go-live date if needed.
+                    </div>
+                    <button className="rq-btn-ghost" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => setTimelineDefaulted(false)}>Dismiss</button>
+                  </div>
+                )}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                   <p className="rq-hint" style={{ marginBottom: 0, flex: 1 }}>Set your start and go-live dates — all activity dates cascade automatically.</p>
                   {buyingChannel && (
@@ -2143,6 +2385,7 @@ Example format:
             {/* ── Market ── */}
             {view === "market" && (
               <div className="rq-fade">
+                <StaleWarning />
                 {!formalScope ? (
                   <div style={{ textAlign: "center", padding: "56px 24px", background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12 }}>
                     <div style={{ fontSize: 36, marginBottom: 14 }}>🏪</div>
@@ -2152,7 +2395,7 @@ Example format:
                   </div>
                 ) : (
                   <>
-                    <p className="rq-hint">The agent identifies relevant vendors based on your scope — mainstream and niche categories alike. Ratings and requirements fit are the agent's assessment based on its knowledge of each vendor. Verify shortlisted vendors on G2 before committing.</p>
+                    <p className="rq-hint" style={{ marginBottom: 16 }}>Vendors are identified based on your approved scope and requirements. Pricing estimates, ratings, and requirements fit scores are AI-generated estimates based on publicly available market data — not live transaction data or verified vendor pricing. Treat all figures as directional. Verify pricing and capabilities directly with vendors before using in budget planning or executive presentations.</p>
                     {vendors.length > 0 && (
                       <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12 }}>
                         <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#9CA3AF", letterSpacing: ".08em", textTransform: "uppercase" }}>Results helpful?</span>
@@ -2192,7 +2435,7 @@ Example format:
                             {/* Search links — consistent across all cards */}
                             {(() => {
                               const q = encodeURIComponent(v.name.split(" — ").pop());
-                              const g2Link = v.g2Url || `https://www.g2.com/search#q=${q}&segment=all`;
+                              const g2Link = `https://www.g2.com/search#q=${q}&segment=all`;
                               return (
                                 <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                                   <a href={g2Link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
@@ -2412,6 +2655,7 @@ Example format:
                           )}
                           <button className="rq-btn-ghost" style={{ fontSize: 10 }} onClick={() => {
                             if (window.confirm("Restart intake? This will clear the conversation, bullets, and scope.")) {
+                              if (requirements.length > 0 || vendors.length > 0) setIsStale(true);
                               setChatMessages([]); setScopeBullets([]); setFormalScope(""); setScopeApproved(false);
                               setScopeFlags([]); setExpertQuestions([]); setChatInput(""); setChatCollapsed(false);
                               setBulletsCollapsed(false); setContinuingChat(false); setAnswers(p => ({ ...p, freeform: "" }));
@@ -2556,13 +2800,13 @@ Example format:
                       <div style={{ marginTop: 14 }} className="rq-fade">
                         <div className="rq-scope-approved"><CheckCircle size={15} /> Scope approved — all criteria met</div>
                         <div className="rq-actions">
-                          <button className="rq-btn-primary" onClick={() => setView("requirements")}>Generate Requirements <ChevronRight size={13} /></button>
+                          <button className="rq-btn-primary" onClick={doAutoFlow}>Generate Requirements <ChevronRight size={13} /></button>
                         </div>
                       </div>
                     )}
                     {formalScope && !scopeApproved && !editingScope && !scopeBusy && (
                       <div style={{ marginTop: 14 }} className="rq-actions">
-                        <button className="rq-btn-primary" onClick={() => setView("requirements")}>Generate Requirements <ChevronRight size={13} /></button>
+                        <button className="rq-btn-primary" onClick={doAutoFlow}>Generate Requirements <ChevronRight size={13} /></button>
                       </div>
                     )}
                     {expertQuestions.length > 0 && !scopeApproved && !editingScope && (
@@ -2605,6 +2849,7 @@ Example format:
             {/* ── Requirements ── */}
             {view === "requirements" && (
               <div className="rq-fade">
+                <StaleWarning />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
                   <p className="rq-hint" style={{ marginBottom: 0 }}>Drag to reorder. Edit, delete, or add your own.</p>
                   <button className="rq-btn-ghost" onClick={doGenerateReqs} disabled={reqsBusy}>{reqsBusy ? <Loader size={11} className="spin" /> : <RefreshCw size={11} />} Regenerate</button>
@@ -2690,68 +2935,63 @@ Example format:
             {/* ── Questions ── */}
             {view === "questions" && (
               <div className="rq-fade">
+                <StaleWarning />
                 {qErr && <div className="rq-error">{qErr}</div>}
                 {qBusy && (
                   <div className="rq-loading-center">
                     <Loader size={28} className="spin" style={{ marginBottom: 12, color: "#C2410C" }} />
                     <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4 }}>Generating questions…</div>
-                    <div style={{ fontSize: 12, color: "#9CA3AF" }}>Building discovery questions for {requirements.length} requirement{requirements.length !== 1 ? "s" : ""}</div>
+                    <div style={{ fontSize: 12, color: "#9CA3AF" }}>Building 5 vendor discovery questions from your scope</div>
                   </div>
                 )}
-                {!qBusy && Object.keys(questions).length === 0 && (
+                {!qBusy && (!questions.scope || questions.scope.length === 0) && (
                   <div style={{ textAlign: "center", padding: "56px 24px", background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 12 }}>
                     <div style={{ fontSize: 36, marginBottom: 14 }}>🔍</div>
                     <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 15, fontWeight: 700, color: "#374151", marginBottom: 8 }}>
-                      {requirements.length === 0 ? "No requirements yet" : "Preparing questions…"}
+                      {requirements.length === 0 ? "No requirements yet" : "No questions yet"}
                     </div>
                     <div style={{ fontFamily: "'Lora',serif", fontSize: 13, color: "#9CA3AF", marginBottom: 24, lineHeight: 1.6 }}>
-                      {requirements.length === 0
-                        ? "Complete your scope and requirements first."
-                        : "Building your vendor discovery questionnaire."}
+                      {requirements.length === 0 ? "Complete your scope and requirements first." : "Questions will generate automatically or click below."}
                     </div>
-                    {requirements.length === 0 && (
-                      <button className="rq-btn-ghost" onClick={() => setView("requirements")}>Go to requirements <ChevronRight size={13} /></button>
+                    {requirements.length > 0 && (
+                      <button className="rq-btn-primary" onClick={doGenerateQuestions}>Generate questions</button>
                     )}
                   </div>
                 )}
-                {!qBusy && Object.keys(questions).length > 0 && (
+                {!qBusy && questions.scope && questions.scope.length > 0 && (
                   <>
-                    {requirements.map(req => {
-                      const qs = questions[req.id] || [];
-                      return (
-                        <div key={req.id} style={{ marginBottom: 22 }}>
-                          <div className="rq-req-group-label">{req.id} — {req.text}</div>
-                          {qs.map((q, i) => (
-                            <div className="rq-q-card" key={i}>
-                              <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open ended" : "Multiple choice"}</div>
-                              <div className="rq-q-text">{q.text}</div>
-                              {q.type === "multiple_choice" && q.options?.length && (
-                                <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
-                              )}
-                            </div>
-                          ))}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                      <div className="rq-section-label" style={{ marginBottom: 0 }}>Vendor discovery questions</div>
+                      <button className="rq-btn-ghost" onClick={doGenerateQuestions} disabled={qBusy} style={{ fontSize: 11 }}>
+                        <RefreshCw size={11} /> Regenerate
+                      </button>
+                    </div>
+                    <p className="rq-hint" style={{ marginBottom: 20 }}>5 questions built from your scope. Send these to vendors to surface limitations, hidden costs, and implementation complexity before committing.</p>
+                    {questions.scope.map((q, i) => (
+                      <div className="rq-q-card" key={i} style={{ marginBottom: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, color: "#C2410C", letterSpacing: ".1em" }}>Q{i + 1}</div>
+                          <div className={`rq-badge ${q.type === "open_ended" ? "rq-badge-open" : "rq-badge-mc"}`}>{q.type === "open_ended" ? "Open ended" : "Multiple choice"}</div>
                         </div>
-                      );
-                    })}
-                    <div className="rq-actions" style={{ justifyContent: "space-between" }}>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button className="rq-btn-ghost" onClick={doGenerateQuestions} disabled={qBusy}><RefreshCw size={11} /> Regenerate</button>
-                        <button className="rq-btn-ghost" onClick={() => {
-                          const lines = requirements.flatMap(req => {
-                            const qs = questions[req.id] || [];
-                            return [`\n${req.id}: ${req.text}`, ...qs.map((q, i) => {
-                              const opts = q.type === "multiple_choice" && q.options?.length
-                                ? "\n" + q.options.map((o, j) => `   ${String.fromCharCode(65+j)}. ${o}`).join("\n")
-                                : "\n   [Open response]";
-                              return `${i+1}. ${q.text}${opts}`;
-                            })];
-                          });
-                          const blob = new Blob([`${projectTitle || "Questions"}\nVendor Discovery Questionnaire\n${"=".repeat(40)}${lines.join("\n")}`], { type: "text/plain" });
-                          saveAs(blob, `${(projectTitle || "questions").replace(/[^a-zA-Z0-9_-]/g, "_")}_questions.txt`);
-                        }}>
-                          <FileText size={11} /> Export questions
-                        </button>
+                        <div className="rq-q-text">{q.text}</div>
+                        {q.type === "multiple_choice" && q.options?.length && (
+                          <div className="rq-mc-opts">{q.options.map((o, j) => <span key={j} className="rq-mc-opt">{String.fromCharCode(65 + j)}. {o}</span>)}</div>
+                        )}
                       </div>
+                    ))}
+                    <div className="rq-actions" style={{ justifyContent: "space-between", marginTop: 8 }}>
+                      <button className="rq-btn-ghost" onClick={() => {
+                        const lines = questions.scope.map((q, i) => {
+                          const opts = q.type === "multiple_choice" && q.options?.length
+                            ? "\n" + q.options.map((o, j) => `   ${String.fromCharCode(65+j)}. ${o}`).join("\n")
+                            : "\n   [Open response]";
+                          return `Q${i+1}. ${q.text}${opts}`;
+                        });
+                        const blob = new Blob([`${projectTitle || "Questions"}\nVendor Discovery Questionnaire\n${"=".repeat(40)}\n\n${lines.join("\n\n")}`], { type: "text/plain" });
+                        saveAs(blob, `${(projectTitle || "questions").replace(/[^a-zA-Z0-9_-]/g, "_")}_questions.txt`);
+                      }}>
+                        <FileText size={11} /> Export questions
+                      </button>
                       <button className="rq-btn-primary" onClick={() => setView("market")}>Continue to Market <ChevronRight size={13} /></button>
                     </div>
                   </>
@@ -2762,6 +3002,15 @@ Example format:
             {/* ── Review ── */}
             {view === "summary" && (
               <div className="rq-fade">
+
+                {/* Timeline default warning */}
+                {timelineDefaulted && (
+                  <div style={{ background: "#FFF7ED", border: "1px solid rgba(194,65,12,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#C2410C" }}>
+                      ⚠ Timeline defaulted to 90 days — no deadline was provided during intake. Review the Timeline tab before sharing.
+                    </div>
+                  </div>
+                )}
 
                 {/* Summary tiles */}
                 <div className="rq-metrics" style={{ marginBottom: 28 }}>
@@ -2812,6 +3061,93 @@ Example format:
                 )}
                 <hr className="rq-divider" />
 
+                {/* Project scope — collapsible */}
+                <details style={{ marginBottom: 24 }}>
+                  <summary style={{ cursor: "pointer", fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#6B7280", marginBottom: 10, userSelect: "none" }}>
+                    Project scope
+                  </summary>
+                  {formalScope
+                    ? <div className="rq-scope-box" style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>{formalScope.replace(/^#{1,3}\s+/gm, '').replace(/^[-*]\s+/gm, '• ').replace(/\*\*(.*?)\*\*/g, '$1').trim()}</div>
+                    : <div style={{ color: "#9CA3AF", fontStyle: "italic", fontSize: 13 }}>No scope generated yet.</div>
+                  }
+                </details>
+                <hr className="rq-divider" />
+
+                {/* Requirements — collapsible */}
+                <details style={{ marginBottom: 24 }}>
+                  <summary style={{ cursor: "pointer", fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#6B7280", marginBottom: 10, userSelect: "none" }}>
+                    Functional requirements ({requirements.length})
+                  </summary>
+                  {requirements.length > 0
+                    ? <div style={{ marginTop: 10 }}>
+                        {requirements.map((r, i) => (
+                          <div key={r.id} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, color: "#C2410C", minWidth: 36, paddingTop: 2 }}>{r.id}</div>
+                            <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.6 }}>{r.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    : <div style={{ color: "#9CA3AF", fontStyle: "italic", fontSize: 13, marginTop: 10 }}>No requirements generated yet.</div>
+                  }
+                </details>
+                <hr className="rq-divider" />
+
+                {/* Vendor shortlist — shortlisted only */}
+                <div className="rq-section-label">Vendor shortlist</div>
+                {vendors.length === 0 ? (
+                  <div style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 8, padding: "20px 22px", marginBottom: 24, display: "flex", alignItems: "center", gap: 14 }}>
+                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, color: "#9CA3AF" }}>—</div>
+                    <div>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 12, fontWeight: 600, color: "#6B7280", marginBottom: 3 }}>No market research yet</div>
+                      <div style={{ fontSize: 12, color: "#9CA3AF" }}>Go to Market to search for vendors and score them against your requirements.</div>
+                    </div>
+                    <button className="rq-btn-ghost" style={{ marginLeft: "auto", flexShrink: 0 }} onClick={() => setView("market")}>Go to Market <ChevronRight size={12} /></button>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 24 }}>
+                    {vendors.filter(v => vendorStatus[v.name] === "shortlisted").length === 0 && (
+                      <div style={{ color: "#9CA3AF", fontStyle: "italic", fontSize: 13, marginBottom: 16 }}>No vendors shortlisted yet. Go to Market to shortlist vendors.</div>
+                    )}
+                    {vendors.filter(v => vendorStatus[v.name] === "shortlisted").map(v => {
+                      const matchPct = v.requirementsTotal > 0 ? v.requirementsMatch / v.requirementsTotal : 0;
+                      return (
+                        <div key={v.name} className="vendor-card shortlisted" style={{ cursor: "default" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                            <div>
+                              <div className="vendor-name">{v.name}</div>
+                              <div className="vendor-category">{v.category}</div>
+                            </div>
+                            <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#C2410C", background: "#FFF7ED", padding: "3px 8px", borderRadius: 3, flexShrink: 0 }}>Shortlisted</span>
+                          </div>
+                          <div className="vendor-desc" style={{ marginTop: 6, marginBottom: 8 }}>{v.description}</div>
+                          {v.estimatedPrice && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "7px 10px", background: "#F9F8F8", borderRadius: 6, border: "1px solid rgba(0,0,0,0.06)" }}>
+                              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 500, color: "#111827" }}>{v.estimatedPrice}</div>
+                              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#9CA3AF" }}>{v.pricingModel}</div>
+                              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
+                                <div style={{ width: 6, height: 6, borderRadius: "50%", background: v.priceConfidence === "high" ? "#C2410C" : v.priceConfidence === "medium" ? "#D97706" : "#D1D5DB" }} />
+                                <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#9CA3AF" }}>{v.priceConfidence} confidence · agent est.</span>
+                              </div>
+                            </div>
+                          )}
+                          <div className="vendor-match">
+                            <div className={`confidence-dot confidence-${v.matchConfidence || "low"}`} />
+                            <div className="vendor-match-bar">
+                              <div className={`vendor-match-fill ${v.matchConfidence === "medium" ? "medium" : v.matchConfidence === "low" ? "low" : ""}`} style={{ width: `${matchPct * 100}%` }} />
+                            </div>
+                            <div className="vendor-match-text">Agent estimates {v.requirementsMatch} of {v.requirementsTotal} requirements</div>
+                            {v.g2Rating && v.g2Rating !== "N/A" && <div className="vendor-rating" style={{ marginLeft: "auto" }}><span style={{ color: "#D97706" }}>★</span> {v.g2Rating}</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <button className="rq-btn-ghost" style={{ fontSize: 11, marginTop: 8 }} onClick={() => setView("market")}>
+                      Edit shortlist in Market →
+                    </button>
+                  </div>
+                )}
+                <hr className="rq-divider" />
+
                 {/* Timeline summary */}
                 <div className="rq-section-label">Buying timeline</div>
                 {rfpStart && goLive ? (
@@ -2839,63 +3175,18 @@ Example format:
                 )}
                 <hr className="rq-divider" />
 
-                {/* Vendor shortlist */}
-                <div className="rq-section-label">Vendor shortlist</div>
-                {vendors.length === 0 ? (
-                  <div style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 8, padding: "20px 22px", marginBottom: 24, display: "flex", alignItems: "center", gap: 14 }}>
-                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, color: "#9CA3AF" }}>—</div>
-                    <div>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 12, fontWeight: 600, color: "#6B7280", marginBottom: 3 }}>No market research yet</div>
-                      <div style={{ fontSize: 12, color: "#9CA3AF" }}>Go to Market to search for vendors and score them against your requirements.</div>
-                    </div>
-                    <button className="rq-btn-ghost" style={{ marginLeft: "auto", flexShrink: 0 }} onClick={() => setView("market")}>Go to Market <ChevronRight size={12} /></button>
-                  </div>
-                ) : (
-                  <div style={{ marginBottom: 24 }}>
-                    {vendors.filter(v => vendorStatus[v.name] !== "eliminated").map(v => {
-                      const status = vendorStatus[v.name];
-                      const matchPct = v.requirementsTotal > 0 ? v.requirementsMatch / v.requirementsTotal : 0;
-                      return (
-                        <div key={v.name} className={`vendor-card${status === "shortlisted" ? " shortlisted" : ""}`} style={{ cursor: "default" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                            <div>
-                              <div className="vendor-name">{v.name}</div>
-                              <div className="vendor-category">{v.category}</div>
-                            </div>
-                            {status === "shortlisted" && <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#C2410C", background: "#FFF7ED", padding: "3px 8px", borderRadius: 3, flexShrink: 0 }}>Shortlisted</span>}
-                          </div>
-                          <div className="vendor-desc" style={{ marginTop: 6, marginBottom: 8 }}>{v.description}</div>
-                          {/* Pricing row */}
-                          {v.estimatedPrice && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "7px 10px", background: "#F9F8F8", borderRadius: 6, border: "1px solid rgba(0,0,0,0.06)" }}>
-                              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 500, color: "#111827" }}>{v.estimatedPrice}</div>
-                              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#9CA3AF" }}>{v.pricingModel}</div>
-                              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
-                                <div style={{ width: 6, height: 6, borderRadius: "50%", background: v.priceConfidence === "high" ? "#C2410C" : v.priceConfidence === "medium" ? "#D97706" : "#D1D5DB" }} />
-                                <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, color: "#9CA3AF" }}>{v.priceConfidence} confidence · agent est.</span>
-                              </div>
-                            </div>
-                          )}
-                          <div className="vendor-match">
-                            <div className={`confidence-dot confidence-${v.matchConfidence || "low"}`} />
-                            <div className="vendor-match-bar">
-                              <div className={`vendor-match-fill ${v.matchConfidence === "medium" ? "medium" : v.matchConfidence === "low" ? "low" : ""}`} style={{ width: `${matchPct * 100}%` }} />
-                            </div>
-                            <div className="vendor-match-text">Agent estimates {v.requirementsMatch} of {v.requirementsTotal} requirements</div>
-                            {v.g2Rating && v.g2Rating !== "N/A" && <div className="vendor-rating" style={{ marginLeft: "auto" }}><span style={{ color: "#D97706" }}>★</span> {v.g2Rating}</div>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <hr className="rq-divider" />
-
                 {/* Export */}
                 {exportErr && <div className="rq-error" style={{ marginBottom: 16 }}>{exportErr}</div>}
-                <button className="rq-btn-primary" onClick={doExport} disabled={!formalScope || exportBusy} style={{ padding: "12px 28px" }}>
-                  {exportBusy ? <><Loader size={14} className="spin" /> Exporting…</> : <><FileText size={14} /> Export to .docx</>}
-                </button>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <button className="rq-btn-primary" onClick={doExport} disabled={!formalScope || exportBusy} style={{ padding: "12px 28px" }}>
+                    {exportBusy ? <><Loader size={14} className="spin" /> Exporting…</> : <><FileText size={14} /> Export to .docx</>}
+                  </button>
+                  <button className="rq-btn-ghost" onClick={doExportPDF} disabled={!formalScope || pdfBusy} style={{ padding: "12px 28px" }}>
+                    {pdfBusy ? <><Loader size={14} className="spin" /> Generating PDF…</> : <><FileText size={14} /> Export to PDF</>}
+                  </button>
+                </div>
+                <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 10 }}>PDF includes cover page, narrative, scope, requirements, shortlisted vendors, and timeline. .docx includes full detail including all vendors and questions.</p>
+
               </div>
             )}
 
