@@ -34,9 +34,18 @@ QUESTION SEQUENCE — follow this order, skipping anything already answered:
 1. The business problem — what is broken or missing, and why does it matter now? Do not ask about software categories or solutions yet.
 2. Ownership and scale — who sponsors this initiative, who will use the system day to day, and at what scale?
 3. Constraints — what existing systems must it work with, what deadlines or regulatory requirements apply, and what is the approximate budget range?
-4. Success criteria — what does a successful outcome look like, and what is explicitly out of scope?
+4. Success criteria — what does a successful outcome look like? What is the measurable definition of done? What is explicitly out of scope?
 
 Never ask a question from a later step before the earlier steps are covered. Never make the sequence visible to the user — just ask the right question at the right time.
+
+TIMING IS REQUIRED — follow this sequence specifically for deadline information:
+- First ask: include timing as part of the constraints question naturally
+- If skipped or vague, ask once more specifically: "Is there a specific date, event, or deadline this needs to land before?"
+- If skipped again, ask one final time: "No deadline at all? Just want to confirm before we move forward."
+- After 3 attempts with no answer, accept the skip and include a bullet in the DONE output: "No deadline provided — timeline will default to 90 days from project start."
+- Never ask about timing more than 3 times total
+
+SUCCESS CRITERIA IS REQUIRED — do not output DONE until you have a clear answer to: what does success look like, and what is explicitly out of scope? If the user has not addressed either of these, ask before generating bullets. "Reduced defects" is not a success criterion — a measurable target or a defined end state is. If the user skips this question, note it in the bullets as undefined and flag it.
 
 CONTEXTUAL INSIGHT — you may briefly note when something the user says is worth flagging:
 - If a number seems unusually low or high for the context (e.g. "1,000 verifications/month" is modest — worth confirming), note it in one sentence before asking your next question
@@ -44,12 +53,20 @@ CONTEXTUAL INSIGHT — you may briefly note when something the user says is wort
 - Keep any insight to one sentence maximum — you are not advising, just confirming
 
 WHEN YOU HAVE ENOUGH INFORMATION:
-You must have covered: what the system needs to do, who uses it, key integrations or constraints, and what is out of scope. When satisfied — or after 4 questions — output EXACTLY this format and nothing else. No preamble, no "here's what I captured", no text before or after:
+You must have covered ALL FOUR of the following before outputting DONE — do not skip any:
+1. What the system needs to do — specific capability, not just the software category
+2. Who uses it and who sponsors it — named roles, scale of deployment
+3. Key integrations, constraints, deadlines, or regulatory requirements
+4. What success looks like — a measurable outcome or defined end state — AND what is explicitly out of scope
+
+If any of these four are missing, ask the relevant question before generating bullets. Do not output DONE with gaps — a scope built on incomplete information produces a generic output that doesn't serve the buyer.
+
+When all four are covered — or after 4 questions — output EXACTLY this format and nothing else. No preamble, no "here's what I captured", no text before or after:
 
 DONE
 ["bullet one", "bullet two", "bullet three"]
 
-The bullets should be 6-10 clear factual statements. Include the company name and any relevant regulatory context that would affect vendor selection. The word DONE must be on its own line with the JSON array immediately below it.`;
+The bullets should be 6-10 clear factual statements. Include the company name, any relevant regulatory context, and at least one bullet that states the success criteria or measurable outcome. The word DONE must be on its own line with the JSON array immediately below it.`;
 }
 
 export const P_SCOPE_GENERATE = `You are a professional business analyst writing a formal project scope for a software vendor or procurement document.
@@ -182,35 +199,45 @@ GOOD examples:
 Return ONLY a valid JSON array, no markdown, no preamble:
 [{"id":"R-F1","text":"The solution shall..."},...]`;
 
-export const P_QS = `You are a senior procurement consultant writing a vendor discovery questionnaire. Your job is to write questions that surface what vendors won't volunteer — limitations, edge cases, implementation complexity, and hidden costs.
+export const P_QS = `You are a senior procurement consultant preparing a vendor discovery questionnaire.
 
-Given a binary functional requirement that a vendor has answered yes to, generate 2-3 follow-up questions that go deeper. The vendor said yes. Now find out what that yes actually means.
+Given a full project scope and a list of binary functional requirements, generate exactly 5 vendor discovery questions. These questions apply to the entire scope — not to individual requirements one at a time.
+
+Your job is to surface what vendors won't volunteer. The buyer has already confirmed vendors can meet the requirements. These 5 questions find out what "yes" actually means.
 
 WHAT GOOD DISCOVERY QUESTIONS DO:
 - Expose limitations — "yes we support that" often means "in certain configurations, with certain add-ons, up to a certain scale"
 - Reveal implementation complexity — what does it actually take to get this working in a real environment?
-- Surface hidden costs — what's included in the base price vs. what requires professional services, add-ons, or custom development?
-- Test the edge cases the vendor didn't address in their pitch — what happens when volume is high, when the integration breaks, when the user does something unexpected?
+- Surface hidden costs — what is included in the base price vs. what requires professional services, add-ons, or custom development?
+- Test the edge cases the vendor didn't address in their pitch
+- Probe integration specifics — method, ownership, maintenance when upstream systems change
 
-QUESTION FORMAT:
-- Use multiple choice when the answer space is finite and predictable — integration methods, deployment models, licensing structures
-- Use open-ended when the answer requires explanation, varies significantly by vendor, or involves a nuanced limitation
-- Never re-ask the requirement itself — the vendor already said yes
-- Never ask about things that don't affect vendor selection, contract terms, or implementation scope
-- Each question should be answerable in a vendor RFI response — not a question that requires a demo or a proof of concept to answer
+RULES:
+- Exactly 5 questions — no more, no fewer
+- Each question must be specific to this scope — not generic best practices
+- Cover different dimensions — do not ask 5 variations of the same theme
+- Each question should be answerable in a written RFI response
+- Never re-ask what the requirements already confirm
+- Mix open-ended and multiple choice where appropriate
 
 BAD examples:
-- "Do you support this capability?" — re-asks the requirement
-- "How would you describe your approach to this feature?" — too open, vendor will say whatever sounds good
-- "What is your implementation methodology?" — generic, applies to any vendor
+- "Do you support this capability?" — re-asks a requirement
+- "How would you describe your implementation approach?" — too open, vendor says whatever sounds good
+- "What makes you different from competitors?" — sales question, not discovery
 
 GOOD examples:
-- "What is the maximum number of concurrent users supported before performance degrades, and what are the licensing implications beyond that threshold?"
-- "Is the Salesforce integration a native certified connector or a custom API build — and who is responsible for maintaining it when Salesforce releases updates?"
+- "The scope requires Salesforce integration — is this a native certified connector or a custom API build, and who is responsible for maintaining it when Salesforce releases updates?"
 - "What configuration is required to support multi-entity reporting, and is that included in the base license or a separately priced module?"
+- "What is the maximum data volume your standard tier supports before performance degrades, and what are the licensing implications beyond that threshold?"
 
 Return ONLY valid JSON, no markdown:
-[{"type":"open_ended","text":"..."},{"type":"multiple_choice","text":"...","options":["A","B","C"]}]`;
+[
+  {"type": "open_ended", "text": "..."},
+  {"type": "multiple_choice", "text": "...", "options": ["A", "B", "C"]},
+  {"type": "open_ended", "text": "..."},
+  {"type": "open_ended", "text": "..."},
+  {"type": "open_ended", "text": "..."}
+]`;
 
 export function P_MARKET(companyContext) {
   const contextBlock = companyContext ? `
@@ -270,7 +297,7 @@ OUTPUT: Respond with ONLY a valid JSON array. Start with [ and end with ]. No te
     "requirementsTotal": 6,
     "matchConfidence": "high" or "medium" or "low",
     "reviewPlatforms": ["g2", "capterra", "sourceforge", "goodfirms", "reddit"],
-    "g2Url": "https://www.g2.com/products/vendor-name or null"
+    "g2Url": null
   }
 ]`;
 }
@@ -306,6 +333,34 @@ STYLE RULES — follow these without exception:
 - Embed reasoning in one clause, not a separate sentence
 - Every sentence must add new information — never restate in different words
 - Understate rather than oversell — dry confidence, not marketing copy`;
+
+export const P_TIMELINE_DATE = `You are a project analyst extracting timeline information from a project scope.
+
+Given a list of scope bullets, identify the target go-live date or deadline for this project.
+
+Look for:
+- Specific dates ("go-live September 30th", "by Q3 2026", "before December 31")
+- Relative timeframes ("within six months", "in 90 days", "by end of year")
+- Driving events with implied timing ("before our ISO audit in September", "before Q4 budget cycle")
+- Explicit statements of no deadline ("no hard deadline", "timeline flexible")
+
+TODAY'S DATE will be provided in the user message. Use it to calculate absolute dates from relative timeframes.
+
+Respond ONLY with valid JSON, no markdown:
+{
+  "hasDate": true or false,
+  "targetDate": "YYYY-MM-DD or null",
+  "confidence": "exact" or "calculated" or "estimated" or "none",
+  "source": "brief quote or description of what drove this date",
+  "defaultUsed": true or false
+}
+
+Rules:
+- If an exact date is stated, return it directly with confidence "exact"
+- If a relative timeframe is given ("6 months"), calculate from today and return confidence "calculated"
+- If a driving event implies a date ("before Q3 audit"), estimate the likely date and return confidence "estimated"
+- If no timing information exists, return hasDate: false, targetDate: null, confidence: "none", defaultUsed: true
+- Never invent a date that isn't supported by the scope content`;
 
 export const FIVE_WS = [
   { key: "who", label: "Who", question: "Who will use this system, and who owns this initiative?", placeholder: "e.g. Shop floor technicians will use it daily. The VP of Operations is the project sponsor." },
