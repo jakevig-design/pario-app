@@ -29,13 +29,69 @@ _style.textContent = `
   *{box-sizing:border-box}
   .rq-root{font-family:'Lora',Georgia,serif;background:#F9F8F8;min-height:100vh;color:#111827;display:flex;flex-direction:column}
 
-  /* ── Dashboard layout ── */
-  .rq-shell{display:flex;flex:1;min-height:0}
-  .rq-sidebar{width:200px;flex-shrink:0;background:#FFFFFF;border-right:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;padding:0;transition:transform .2s}
-  .rq-sidebar-logo{padding:16px 20px;border-bottom:1px solid rgba(0,0,0,0.07)}
-  .rq-sidebar-brand{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#C2410C;margin-bottom:2px}
-  .rq-sidebar-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#111827}
-  .rq-sidebar-session{font-family:'JetBrains Mono',monospace;font-size:9px;color:#9CA3AF;margin-top:4px}
+  /* Two-panel consumer shell */
+  .rq-shell{display:grid;grid-template-columns:400px 1fr;flex:1;height:100vh;overflow:hidden}
+  .rq-chat-panel{display:flex;flex-direction:column;background:#FFFFFF;border-right:1px solid rgba(0,0,0,0.07);min-height:0;overflow:hidden}
+  .rq-chat-header{padding:14px 18px;border-bottom:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .rq-chat-logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#1E293B;letter-spacing:-0.02em}
+  .rq-chat-logo-dot{color:#C2410C}
+  .rq-chat-actions{display:flex;align-items:center;gap:8px}
+  .rq-messages{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+  .rq-msg{display:flex;flex-direction:column;gap:3px}
+  .rq-msg-bot .rq-bubble{background:#F9F8F8;color:#111827;border-radius:0 10px 10px 10px;padding:11px 14px;font-size:13px;line-height:1.65;max-width:88%;font-family:'Lora',serif;border:1px solid rgba(0,0,0,0.06)}
+  .rq-msg-user{align-items:flex-end}
+  .rq-msg-user .rq-bubble{background:#1E293B;color:#F8FAFC;border-radius:10px 10px 0 10px;padding:11px 14px;font-size:13px;line-height:1.65;max-width:85%;font-family:'Lora',serif}
+  .rq-msg-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9CA3AF;padding:0 4px}
+  .rq-chat-input-wrap{padding:12px 18px;border-top:1px solid rgba(0,0,0,0.07);flex-shrink:0}
+  .rq-chat-input-row{display:flex;gap:8px;align-items:flex-end}
+  .rq-chat-textarea{flex:1;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:10px 13px;font-size:13px;resize:none;min-height:42px;max-height:120px;background:#F9F8F8;color:#111827;font-family:'Lora',serif;outline:none;transition:border-color .15s;line-height:1.5}
+  .rq-chat-textarea:focus{border-color:#C2410C;background:#FFFFFF}
+  .rq-chat-send{width:38px;height:38px;background:#1E293B;border:none;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s}
+  .rq-chat-send:hover{background:#C2410C}
+  .rq-chat-send:disabled{opacity:.35;cursor:not-allowed}
+  .rq-output-panel{display:flex;flex-direction:column;background:#F9F8F8;min-height:0;overflow:hidden}
+  .rq-output-header{padding:14px 20px;border-bottom:1px solid rgba(0,0,0,0.07);background:#FFFFFF;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .rq-output-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#111827}
+  .rq-output-sub{font-family:'Syne',sans-serif;font-size:10px;color:#9CA3AF;margin-top:2px}
+  .rq-output-steps{display:flex;gap:5px;align-items:center}
+  .rq-output-step{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:20px;border:1px solid rgba(0,0,0,0.1);color:#9CA3AF;background:#FFFFFF;transition:all .3s}
+  .rq-output-step.done{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}
+  .rq-output-step.active{background:#FFF7ED;color:#C2410C;border-color:#FDBA74}
+  .rq-output-body{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+  .rq-output-card{background:#FFFFFF;border:1px solid rgba(0,0,0,0.07);border-radius:10px;padding:18px 20px;animation:fadeUp .4s ease both}
+  .rq-output-card-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C2410C;margin-bottom:8px}
+  .rq-output-card-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#111827;margin-bottom:8px;line-height:1.4;letter-spacing:-0.01em}
+  .rq-output-card-body{font-size:13px;color:#6B7280;line-height:1.65;font-family:'Lora',serif}
+  .rq-output-building{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#FFF7ED;border:1px solid rgba(194,65,12,0.2);border-radius:6px;margin-top:8px}
+  .rq-output-building-dot{width:6px;height:6px;border-radius:50%;background:#C2410C;animation:pulse 1s infinite}
+  .rq-output-building-text{font-family:'Syne',sans-serif;font-size:11px;color:#C2410C;font-weight:600}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .rq-output-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 32px;text-align:center}
+  .rq-output-empty-icon{font-size:32px;margin-bottom:16px;opacity:.4}
+  .rq-output-empty-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#9CA3AF;margin-bottom:8px}
+  .rq-output-empty-sub{font-size:13px;color:#C5C0B8;line-height:1.6;max-width:260px;font-family:'Lora',serif}
+  .rq-export-row{padding:12px 20px;border-top:1px solid rgba(0,0,0,0.07);background:#FFFFFF;display:flex;gap:8px;align-items:center;flex-shrink:0}
+  .rq-diff-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
+  .rq-diff-table th{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9CA3AF;text-align:left;padding:6px 10px;border-bottom:1px solid rgba(0,0,0,0.07)}
+  .rq-diff-table td{padding:8px 10px;border-bottom:1px solid rgba(0,0,0,0.05);color:#374151;font-size:12px}
+  .rq-diff-table tr:last-child td{border-bottom:none}
+  .rq-diff-check{color:#15803D;font-size:14px}
+  .rq-diff-cross{color:#DC2626;font-size:14px}
+  .rq-cost-band{display:flex;align-items:center;gap:16px;margin-top:14px;padding:12px 16px;background:#F9F8F8;border-radius:8px;border:1px solid rgba(0,0,0,0.06)}
+  .rq-cost-range{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#1E293B;letter-spacing:-0.03em}
+  .rq-cost-label{font-family:'Syne',sans-serif;font-size:10px;color:#9CA3AF}
+  .rq-tl-row{display:flex;gap:8px;margin-top:10px}
+  .rq-tl-box{flex:1;background:#F9F8F8;border-radius:6px;padding:10px 12px;border:1px solid rgba(0,0,0,0.06)}
+  .rq-tl-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px}
+  .rq-tl-val{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#1E293B}
+  .rq-drawer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:40}
+  .rq-drawer-overlay.open{display:block}
+  .rq-drawer{position:fixed;top:0;left:0;height:100vh;width:240px;background:#FFFFFF;border-right:1px solid rgba(0,0,0,0.07);display:flex;flex-direction:column;z-index:50;transform:translateX(-100%);transition:transform .2s}
+  .rq-drawer.open{transform:translateX(0)}
+  .rq-drawer-header{padding:16px 20px;border-bottom:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between}
+  .rq-drawer-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#9CA3AF}
+  .rq-drawer-close{background:none;border:none;cursor:pointer;color:#9CA3AF;padding:4px;display:flex;align-items:center;justify-content:center}
+  .rq-drawer-footer{padding:16px 20px;border-top:1px solid rgba(0,0,0,0.07)}
   .rq-nav{padding:12px 0;flex:1;overflow-y:auto}
   .rq-nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-family:'Syne',sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9CA3AF;border-left:2px solid transparent;cursor:pointer;transition:all .15s}
   .rq-nav-item:hover{color:#374151;background:rgba(0,0,0,0.03)}
@@ -43,9 +99,6 @@ _style.textContent = `
   .rq-nav-item.done{color:#6B7280}
   .rq-nav-item.done .rq-nav-num{background:#FFF7ED;border-color:#FDBA74;color:#C2410C}
   .rq-nav-num{width:18px;height:18px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
-  .rq-sidebar-footer{padding:16px 20px;border-top:1px solid rgba(0,0,0,0.07)}
-
-  /* ── Main content area ── */
   .rq-main{flex:1;display:flex;flex-direction:column;min-width:0}
   .rq-topbar{background:#FFFFFF;border-bottom:1px solid rgba(0,0,0,0.07);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:10px}
   .rq-topbar-left .rq-topbar-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#111827}
@@ -56,29 +109,19 @@ _style.textContent = `
   .rq-export-btn:hover{background:#9A3412}
   .rq-export-btn:disabled{opacity:.4;cursor:not-allowed}
   .rq-content{flex:1;padding:28px 32px;overflow-y:auto}
-
-  /* ── Metric cards ── */
   .rq-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
   .rq-metric{background:#FFFFFF;border-radius:6px;padding:12px 14px;border:1px solid rgba(0,0,0,0.07);text-align:center}
   .rq-metric-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px}
   .rq-metric-val{font-size:22px;font-weight:500;color:#111827}
   .rq-metric-sub{font-size:10px;color:#C2410C;margin-top:2px}
   .rq-metric-sub.amber{color:#D97706}
-
-  /* ── Section label ── */
   .rq-section-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#9CA3AF;margin-bottom:10px}
-
-  /* ── Cards / panels ── */
   .rq-card{background:#FFFFFF;border:1px solid rgba(0,0,0,0.07);border-radius:8px;padding:18px 20px;margin-bottom:10px}
   .rq-card:hover{border-color:rgba(194,65,12,0.3)}
-
-  /* ── Form elements ── */
   .rq-textarea{width:100%;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:12px 14px;font-family:'Lora',serif;font-size:14px;color:#111827;background:#FFFFFF;resize:vertical;min-height:80px;outline:none;transition:border-color .15s;line-height:1.65}
   .rq-textarea:focus{border-color:#C2410C}
   .rq-input{width:100%;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:9px 12px;font-family:'Lora',serif;font-size:13px;color:#111827;background:#FFFFFF;outline:none;transition:border-color .15s}
   .rq-input:focus{border-color:#C2410C}
-
-  /* ── Buttons ── */
   .rq-btn-primary{display:inline-flex;align-items:center;gap:7px;background:#C2410C;color:#FFFFFF;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;transition:background .15s}
   .rq-btn-primary:hover{background:#9A3412}
   .rq-btn-primary:disabled{opacity:.4;cursor:not-allowed}
@@ -90,12 +133,8 @@ _style.textContent = `
   .rq-btn-icon:disabled{opacity:.35;cursor:not-allowed}
   .rq-btn-del{color:#DC2626;border-color:rgba(220,38,38,0.3)}
   .rq-btn-del:hover{background:rgba(220,38,38,0.06);color:#DC2626}
-
-  /* ── Req cards ── */
   .rq-req-id{font-family:'JetBrains Mono',monospace;font-size:10px;color:#C2410C;font-weight:500;margin-bottom:4px;background:#FFF7ED;display:inline-block;padding:1px 6px;border-radius:2px;border:1px solid #FDBA74}
   .rq-req-text{font-size:13px;line-height:1.55;color:#374151;margin-top:4px}
-
-  /* ── Q cards ── */
   .rq-q-card{border:1px solid rgba(0,0,0,0.07);border-radius:6px;padding:14px 16px;margin-bottom:8px;background:#FFFFFF}
   .rq-badge{display:inline-block;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:3px;margin-bottom:6px}
   .rq-badge-open{background:#FFF7ED;color:#C2410C;border:1px solid #FDBA74}
@@ -103,76 +142,37 @@ _style.textContent = `
   .rq-q-text{font-size:13px;color:#374151;line-height:1.5}
   .rq-mc-opts{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
   .rq-mc-opt{font-family:'JetBrains Mono',monospace;font-size:11px;background:#FFFBEB;border:1px solid rgba(217,119,6,0.3);border-radius:3px;padding:3px 9px;color:#D97706}
-
-  /* ── Scope ── */
   .rq-scope-box{font-size:14px;line-height:1.75;color:#374151;background:#F9F8F8;border:1px solid rgba(0,0,0,0.07);border-radius:8px;padding:16px 20px;white-space:pre-wrap;font-family:'Lora',serif}
   .rq-scope-approved{background:#FFF7ED;border:1px solid rgba(194,65,12,0.3);border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#C2410C}
   .rq-flag-card{background:#FFFBEB;border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:14px 18px;margin-bottom:12px}
   .rq-flag-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#D97706;margin-bottom:6px;display:flex;align-items:center;gap:6px}
   .rq-flag-text{font-size:13px;color:#92400E;line-height:1.6;margin-bottom:10px}
-
-  /* ── 5Ws ── */
   .rq-5w-card{background:#FFFFFF;border:1px solid rgba(0,0,0,0.07);border-radius:8px;padding:18px 20px;margin-bottom:12px}
   .rq-5w-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#C2410C;margin-bottom:4px}
   .rq-5w-question{font-size:13px;font-weight:500;color:#111827;margin-bottom:10px;font-family:'Syne',sans-serif}
-
-  /* ── Save bar ── */
   .sv-bar{display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;border:1px solid rgba(0,0,0,0.07);border-radius:6px;padding:8px 14px;margin-bottom:20px;gap:12px}
   .sv-status{font-family:'JetBrains Mono',monospace;font-size:10px;color:#9CA3AF;display:flex;align-items:center;gap:6px}
   .sv-status.saved{color:#C2410C}
   .sv-status.saving{color:#D97706}
   .sv-status.error{color:#DC2626}
-
-  /* ── Progress ── */
   .rq-progress{display:flex;align-items:center;gap:10px;margin-bottom:28px}
-
-  /* ── Step progress bar ── */
   .rq-step-bar{display:flex;align-items:center;gap:0;padding:10px 20px;background:#FFFFFF;border-bottom:1px solid rgba(0,0,0,0.05);overflow-x:auto;flex-shrink:0}
   .rq-step-item{display:flex;align-items:center;gap:0;flex-shrink:0}
-  .rq-step-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;flex-shrink:0;transition:all .2s}
-  .rq-step-dot.done{background:#FFF7ED;color:#C2410C;border:1.5px solid #FDBA74}
-  .rq-step-dot.active{background:#C2410C;color:#FFFFFF;border:1.5px solid #C2410C}
-  .rq-step-dot.locked{background:#F3F4F6;color:#D1D5DB;border:1.5px solid #E5E7EB}
-  .rq-step-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;white-space:nowrap}
-  .rq-step-label.done{color:#C2410C}
-  .rq-step-label.active{color:#111827}
-  .rq-step-label.locked{color:#D1D5DB}
-  .rq-step-connector{width:20px;height:1px;background:#E5E7EB;margin:0 4px;flex-shrink:0}
+  .rq-step-connector{width:24px;height:2px;background:rgba(0,0,0,0.08);margin:0 2px;transition:background .3s}
   .rq-step-connector.done{background:#FDBA74}
-
-  /* ── Mobile viewport fix for chat keyboard ── */
-  @supports(height: 100dvh){
-    .rq-root{min-height:100dvh}
-  }
-  .rq-pb-wrap{flex:1;height:3px;background:rgba(0,0,0,0.06);border-radius:2px;overflow:hidden}
-  .rq-pb{height:100%;background:#C2410C;border-radius:2px;transition:width .5s ease}
-  .rq-pb-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:#9CA3AF;white-space:nowrap}
-
-  /* ── Misc ── */
-  .rq-hint{font-size:13px;color:#9CA3AF;line-height:1.6;font-style:italic;margin:0 0 16px}
-  .rq-error{background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.25);border-radius:6px;padding:10px 14px;font-size:13px;color:#DC2626;margin-top:10px}
-  .rq-divider{border:none;border-top:1px solid rgba(0,0,0,0.07);margin:24px 0}
-  .rq-row{display:flex;gap:8px;align-items:center}
-  .rq-actions{display:flex;gap:8px;margin-top:14px;align-items:center;flex-wrap:wrap}
-  .rq-req-group-label{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#374151;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(0,0,0,0.07)}
-  .rq-loading-center{padding:36px 0;text-align:center;color:#9CA3AF;font-style:italic;font-family:'Lora',serif}
-
-  /* ── Projects ── */
-  .sessions-panel{background:#FFFFFF;border:1px solid rgba(0,0,0,0.07);border-radius:8px;overflow:hidden;margin-bottom:24px}
-  .sessions-header{padding:12px 18px;border-bottom:1px solid rgba(0,0,0,0.07);background:#F9F8F8}
-  .sessions-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#9CA3AF}
-  .session-row{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid rgba(0,0,0,0.05);cursor:pointer;transition:background .15s;gap:12px}
-  .session-row:last-child{border-bottom:none}
-  .session-row:hover{background:#F9F8F8}
-  .session-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:#111827;margin-bottom:2px}
-  .session-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:#9CA3AF}
-  .session-status{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px}
-  .session-status.draft{background:#FFFBEB;color:#D97706}
-  .session-status.complete{background:#FFF7ED;color:#C2410C}
-
-  /* ── Timeline ── */
-  .tl-group-header{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#F9F8F8;border-radius:6px;margin-bottom:6px;cursor:pointer;user-select:none;border:1px solid rgba(0,0,0,0.07)}
-  .tl-group-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+  .rq-step-dot{width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:#9CA3AF;transition:all .2s;background:#FFFFFF}
+  .rq-step-dot.active{background:#C2410C;border-color:#C2410C;color:#FFFFFF}
+  .rq-step-dot.done{background:#FFF7ED;border-color:#FDBA74;color:#C2410C}
+  .rq-step-dot.locked{opacity:.35;cursor:default}
+  .rq-step-label{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:6px;white-space:nowrap}
+  .rq-step-label.active{color:#C2410C}
+  .rq-step-label.done{color:#9CA3AF}
+  .rq-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;padding-top:16px;border-top:1px solid rgba(0,0,0,0.07)}
+  .rq-divider{border:none;border-top:1px solid rgba(0,0,0,0.07);margin:16px 0}
+  .rq-hint{font-size:12px;color:#9CA3AF;line-height:1.6;font-style:italic;font-family:'Lora',serif}
+  .rq-error{background:#FEF2F2;border:1px solid rgba(220,38,38,0.3);border-radius:6px;padding:10px 14px;font-size:12px;color:#DC2626;margin-bottom:14px}
+  .rq-loading-center{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center}
+  .tl-group-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;margin-bottom:8px;margin-top:16px}
   .tl-group-pre{color:#C2410C}
   .tl-group-rfx{color:#D97706}
   .tl-group-post{color:#6B7280}
@@ -185,13 +185,9 @@ _style.textContent = `
   .tl-cell-input{border:1px solid rgba(0,0,0,0.1);border-radius:4px;padding:5px 7px;font-family:'Lora',serif;font-size:12px;color:#111827;background:#FFFFFF;outline:none;width:100%}
   .tl-cell-input:focus{border-color:#C2410C}
   .tl-col-hdr{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#9CA3AF}
-
-  /* ── Gantt ── */
   .gantt-wrap{overflow-x:auto;margin-top:20px}
   .gantt-container{min-width:640px;background:#FFFFFF;border:1px solid rgba(0,0,0,0.07);border-radius:8px;padding:18px}
   .gantt-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#9CA3AF;margin-bottom:14px}
-
-  /* ── Market research ── */
   .vendor-card{background:#FFFFFF;border:1px solid rgba(0,0,0,0.07);border-radius:8px;padding:16px 18px;margin-bottom:10px;transition:border-color .15s}
   .vendor-card:hover{border-color:rgba(194,65,12,0.25)}
   .vendor-card.shortlisted{border-color:rgba(194,65,12,0.4);background:#FFF7ED}
@@ -233,33 +229,22 @@ _style.textContent = `
   .confidence-high{background:#C2410C}
   .confidence-medium{background:#D97706}
   .confidence-low{background:#D1D5DB}
-
   @keyframes spin{to{transform:rotate(360deg)}}
   .spin{animation:spin .8s linear infinite;display:inline-block}
   .rq-fade{animation:fadeUp .3s ease both}
   @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-
-  /* ── Skeleton loader ── */
   .rq-skeleton{background:linear-gradient(90deg,#F3F4F6 25%,#E5E7EB 50%,#F3F4F6 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;border-radius:6px}
   @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-
-  /* ── Mobile hamburger ── */
   .rq-hamburger{display:none;background:none;border:none;cursor:pointer;padding:6px;color:#374151}
   .rq-sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:40}
-
-  /* ── Mobile breakpoint ── */
   @media(max-width:768px){
+    .rq-shell{grid-template-columns:1fr;grid-template-rows:55vh 1fr;height:auto;min-height:100vh}
+    .rq-chat-panel{height:55vh;border-right:none;border-bottom:1px solid rgba(0,0,0,0.07)}
+    .rq-output-panel{min-height:45vh}
     .rq-hamburger{display:flex;align-items:center;justify-content:center}
-    .rq-shell{position:relative}
-    .rq-sidebar{position:fixed;top:0;left:0;height:100vh;z-index:50;transform:translateX(-100%)}
-    .rq-sidebar.open{transform:translateX(0)}
-    .rq-sidebar-overlay.open{display:block}
-    .rq-topbar{padding:10px 16px}
+    .rq-output-steps{display:none}
     .rq-content{padding:18px 16px}
     .rq-metrics{grid-template-columns:1fr 1fr}
-    .rq-topbar-sub{display:none}
-    .rq-export-btn span{display:none}
-    .rq-export-btn{padding:8px 10px}
     .tl-col-hdr:nth-child(4),.tl-act-row>*:nth-child(4){display:none}
     .gantt-wrap{margin-left:-16px;margin-right:-16px}
   }
@@ -1667,33 +1652,20 @@ export default function RequirementsAgent() {
   // ── Auto-flow: trigger full cascade after scope approval ────
   const doAutoFlow = async () => {
     if (!formalScope) return;
-
-    // Show a loading overlay on the sidebar during auto-flow
     setAutoFlowing(true);
-
     try {
-      // Step 1 — Requirements
-      setView("requirements");
+      // Run all steps — no view switching, overlay handles UX
       await doGenerateReqs();
-
-      // Step 2 — Questions (single call, 5 questions)
-      setView("questions");
       await doGenerateQuestions();
-
-      // Step 3 — Timeline date extraction (parallel-safe, no view change)
       await doExtractTimelineDate();
-
-      // Step 4 — Market research
-      setView("market");
       await doMarketResearch();
-
-      // Step 5 — Narrative (summary auto-generates on arrival)
+      await doGenerateNarrative();
       setIsStale(false);
-      setView("summary");
     } catch (e) {
       console.error("Auto-flow error:", e);
     } finally {
       setAutoFlowing(false);
+      setView("summary");
     }
   };
 
@@ -1706,17 +1678,9 @@ export default function RequirementsAgent() {
     </div>
   ) : null;
 
-  // ── Auto-generate on tab arrival ──────────────────────────
+  // ── Auto-generate on tab arrival (manual navigation only) ──
   useEffect(() => {
-    if (view === "requirements" && formalScope && requirements.length === 0 && !reqsBusy) {
-      doGenerateReqs();
-    }
-    if (view === "questions" && requirements.length > 0 && (!questions.scope || questions.scope.length === 0) && !qBusy) {
-      doGenerateQuestions();
-    }
-    if (view === "market" && formalScope && vendors.length === 0 && !marketBusy) {
-      doMarketResearch();
-    }
+    if (autoFlowing) return; // auto-flow handles its own sequencing
     if (view === "summary" && formalScope && !narrative && !narrativeBusy) {
       doGenerateNarrative();
     }
@@ -1894,7 +1858,7 @@ export default function RequirementsAgent() {
 
   const pct = (step / 3) * 100;
   const NAV_VIEWS = ["scope", "requirements", "questions", "market", "timeline", "summary"];
-  const NAV_LABELS = ["Scope", "Requirements", "Questions", "Market", "Timeline", "Summary"];
+  const NAV_LABELS = ["The Problem", "Differentiators", "Pressure Test", "The Landscape", "The Plan", "Executive Brief"];
   const answeredReqs = Object.keys(questions).length;
   const allQuestions = questions.scope || Object.values(questions).flat();
   const openQ = allQuestions.filter(q => q.type === "open_ended").length;
@@ -2030,136 +1994,238 @@ export default function RequirementsAgent() {
   }
 
   // ── Shared sidebar ──
-  const sidebarNav = (
-    <>
-      <div className={`rq-sidebar-overlay ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
-      <div className={`rq-sidebar ${sidebarOpen ? "open" : ""}`}>
-      <div className="rq-sidebar-logo" style={{ cursor: "pointer", padding: "16px 20px" }} onClick={() => setView("splash")}>
-        <div className="rq-sidebar-brand">Pario</div>
-        {tenantBrandName && (
-          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#374151", marginTop: 3, letterSpacing: ".01em" }}>
-            {tenantBrandName}
-          </div>
-        )}
-      </div>
-      <div className="rq-nav">
-        {NAV_VIEWS.map((v, i) => {
-          const isScope = v === "scope";
-          const locked = !formalScope && !isScope;
-          return (
-            <div key={v}
-              className={`rq-nav-item ${view === v ? "active" : ""} ${locked ? "locked" : ""}`}
-              onClick={() => { if (!locked) { setView(v); setSidebarOpen(false); } }}
-              title={locked ? "Complete your scope first" : ""}
-              style={{ opacity: locked ? 0.35 : 1, cursor: locked ? "default" : "pointer" }}
-            >
-              <div className="rq-nav-num">{i + 1}</div>
-              {NAV_LABELS[i]}
-            </div>
-          );
-        })}
-        <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "10px 0" }} />
-        <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => { setView("sessions"); setSidebarOpen(false); }}>
-          <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Projects
-        </div>
-        <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "10px 0" }} />
-        <div className="rq-nav-item" onClick={() => { setView("splash"); setSidebarOpen(false); }}>
-          <div className="rq-nav-num"><ArrowLeft size={9} /></div>Home
-        </div>
-      </div>
-      {/* Profile footer */}
-      {authUser && (
-        <div className="rq-sidebar-footer">
-          <div
-            onClick={() => { setProfileEditName(userProfile?.name || ""); setProfileEditTitle(userProfile?.title || ""); setShowProfileModal(true); setSidebarOpen(false); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "6px 8px", borderRadius: 6, transition: "background .15s" }}
-            onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.04)"}
-            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-          >
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#FFF7ED", border: "1px solid #FDBA74", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, color: "#C2410C" }}>
-                {(userProfile?.name || authUser?.email || "?").charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {userProfile?.name || authUser?.email?.split("@")[0] || "Profile"}
-              </div>
-              {userProfile?.title && <div style={{ fontFamily: "'Lora',serif", fontSize: 10, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userProfile.title}</div>}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-    </>
-  );
+  // ── Output panel step indicator ──────────────────────────
+  const outputSteps = [
+    { key: "problem", label: "Problem", done: !!formalScope },
+    { key: "differentiators", label: "Differentiators", done: requirements.length > 0 },
+    { key: "vendors", label: "Vendors", done: vendors.length > 0 },
+    { key: "plan", label: "Plan", done: !!narrative },
+  ];
 
-  const topbar = (
-    <div>
-      <div className="rq-topbar">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button className="rq-hamburger" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect y="3" width="18" height="2" rx="1" fill="currentColor"/><rect y="8" width="18" height="2" rx="1" fill="currentColor"/><rect y="13" width="18" height="2" rx="1" fill="currentColor"/></svg>
+  const activeStep = outputSteps.filter(s => s.done).length;
+
+  // ── Advanced drawer (replaces sidebar) ───────────────────
+  const advancedDrawer = (
+    <>
+      <div className={`rq-drawer-overlay ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
+      <div className={`rq-drawer ${sidebarOpen ? "open" : ""}`}>
+        <div className="rq-drawer-header">
+          <div className="rq-drawer-title">Workspace</div>
+          <button className="rq-drawer-close" onClick={() => setSidebarOpen(false)}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </button>
-          <div className="rq-topbar-left">
-            <div className="rq-topbar-title">{projectTitle || topbarTitles[view] || "Untitled project"}</div>
-            <div className="rq-topbar-sub">{topbarTitles[view] || ""}</div>
-          </div>
         </div>
-        <div className="rq-topbar-right">
-          <div className={`sv-status ${saveStatus === "idle" ? "" : saveStatus}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            {saveStatus === "saving" && <><Loader size={11} className="spin" /> Saving…</>}
-            {saveStatus === "saved" && <span className="rq-save-chip"><CheckCircle size={11} /> Saved</span>}
-            {saveStatus === "error" && <span style={{ color: "#e07070" }}>Save failed</span>}
-            {saveStatus === "idle" && lastSaved && <span style={{ color: "#9CA3AF" }}><Clock size={11} style={{ display: "inline", marginRight: 4 }} />{lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
-          </div>
-          <button className="rq-btn-ghost" style={{ whiteSpace: "nowrap" }} onClick={() => {
-            if (formalScope || scopeBullets.length > 0 || chatMessages.length > 0) {
-              if (!window.confirm("Start a new project? Your current project will remain saved.")) return;
-            }
-            resetSession();
-            setView("scope");
-          }}><Plus size={11} /> New project</button>
-          {view !== "sessions" && view !== "splash" && (
-            <>
-              <button className="rq-btn-ghost" onClick={() => doSave("draft")} disabled={saveStatus === "saving"}><Save size={11} /> Save</button>
-              <button className="rq-btn-icon rq-btn-del" onClick={doDeleteCurrentSession} title="Delete this project"><Trash2 size={13} /></button>
-            </>
-          )}
-          {view !== "sessions" && view !== "splash" && (
-            <button className="rq-export-btn" onClick={doExport} disabled={!formalScope || exportBusy}>
-              {exportBusy ? <Loader size={14} className="spin" /> : <FileText size={14} />} <span>Export .docx</span>
-            </button>
-          )}
-        </div>
-      </div>
-      {/* Step progress bar — only shown inside a project */}
-      {view !== "sessions" && view !== "splash" && (
-        <div className="rq-step-bar">
+        <div className="rq-nav">
           {NAV_VIEWS.map((v, i) => {
-            const isActive = view === v;
-            const isDone = NAV_VIEWS.indexOf(view) > i;
-            const isLocked = !formalScope && v !== "scope";
-            const state = isLocked ? "locked" : isDone ? "done" : isActive ? "active" : "locked";
+            const locked = !formalScope && v !== "scope";
             return (
-              <div key={v} className="rq-step-item">
-                {i > 0 && <div className={`rq-step-connector ${isDone || (NAV_VIEWS.indexOf(view) >= i) ? "done" : ""}`} />}
-                <div
-                  className={`rq-step-dot ${state}`}
-                  onClick={() => { if (!isLocked) setView(v); }}
-                  style={{ cursor: isLocked ? "default" : "pointer" }}
-                  title={isLocked ? "Complete scope first" : NAV_LABELS[i]}
-                >
-                  {isDone ? "✓" : i + 1}
-                </div>
-                {isActive && <span className={`rq-step-label ${state}`}>{NAV_LABELS[i]}</span>}
+              <div key={v}
+                className={`rq-nav-item ${view === v ? "active" : ""}`}
+                onClick={() => { if (!locked) { setView(v); setSidebarOpen(false); } }}
+                style={{ opacity: locked ? 0.35 : 1, cursor: locked ? "default" : "pointer" }}
+              >
+                <div className="rq-nav-num">{i + 1}</div>
+                {NAV_LABELS[i]}
               </div>
             );
           })}
+          <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "10px 0" }} />
+          <div className={`rq-nav-item ${view === "sessions" ? "active" : ""}`} onClick={() => { setView("sessions"); setSidebarOpen(false); }}>
+            <div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Projects
+          </div>
         </div>
-      )}
-    </div>
+        {authUser && (
+          <div className="rq-drawer-footer">
+            <div
+              onClick={() => { setProfileEditName(userProfile?.name || ""); setProfileEditTitle(userProfile?.title || ""); setShowProfileModal(true); setSidebarOpen(false); }}
+              style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "6px 8px", borderRadius: 6 }}
+            >
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#FFF7ED", border: "1px solid #FDBA74", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, color: "#C2410C" }}>
+                  {(userProfile?.name || authUser?.email || "?").charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {userProfile?.name || authUser?.email?.split("@")[0] || "Profile"}
+                </div>
+                {userProfile?.title && <div style={{ fontSize: 10, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userProfile.title}</div>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
+
+  // ── Output panel content ──────────────────────────────────
+  const outputContent = (() => {
+    // Empty state — before intake starts
+    if (!formalScope && !autoFlowing && chatMessages.length < 2) {
+      return (
+        <div className="rq-output-empty">
+          <div className="rq-output-empty-icon">📋</div>
+          <div className="rq-output-empty-title">Your business case will appear here</div>
+          <div className="rq-output-empty-sub">Answer Pario's questions and your evaluation package will build as you go.</div>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {/* Problem statement — appears after scope approved */}
+        {formalScope && (
+          <div className="rq-output-card">
+            <div className="rq-output-card-label">The problem</div>
+            <div className="rq-output-card-body" style={{ whiteSpace: "pre-wrap" }}>
+              {formalScope.replace(/^#{1,3}\s+/gm, '').replace(/^[-*]\s+/gm, '').replace(/\*\*(.*?)\*\*/g, '$1').trim()}
+            </div>
+          </div>
+        )}
+
+        {/* Differentiators — appears after requirements generated */}
+        {(requirements.length > 0 || reqsBusy) && (
+          <div className="rq-output-card">
+            <div className="rq-output-card-label">What differentiates the right solution</div>
+            {reqsBusy ? (
+              <div className="rq-output-building">
+                <div className="rq-output-building-dot" />
+                <div className="rq-output-building-text">Identifying differentiators…</div>
+              </div>
+            ) : requirements.length === 0 ? (
+              <div className="rq-output-card-body" style={{ fontStyle: "italic" }}>No clear differentiators found for this category — market data is limited. See Pressure Test for vendor questions.</div>
+            ) : (
+              <div style={{ marginTop: 4 }}>
+                {requirements.map((r, i) => (
+                  <div key={r.id} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: i < requirements.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, color: "#C2410C", minWidth: 32, paddingTop: 2 }}>{r.id}</div>
+                    <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.6 }}>{r.text}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Vendor comparison — appears after market research */}
+        {(vendors.length > 0 || marketBusy) && (
+          <div className="rq-output-card">
+            <div className="rq-output-card-label">Vendor comparison</div>
+            {marketBusy ? (
+              <div className="rq-output-building">
+                <div className="rq-output-building-dot" />
+                <div className="rq-output-building-text">Researching the market…</div>
+              </div>
+            ) : (
+              <>
+                {requirements.length > 0 && vendors.length > 0 ? (
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="rq-diff-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: "35%" }}>Differentiator</th>
+                          {vendors.filter(v => vendorStatus[v.name] === "shortlisted").slice(0, 3).map(v => (
+                            <th key={v.name}>{v.name}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {requirements.map(r => (
+                          <tr key={r.id}>
+                            <td style={{ fontSize: 11, color: "#374151" }}>{r.text}</td>
+                            {vendors.filter(v => vendorStatus[v.name] === "shortlisted").slice(0, 3).map(v => {
+                              const score = v.requirementsMatch / (v.requirementsTotal || 1);
+                              return (
+                                <td key={v.name} style={{ textAlign: "center" }}>
+                                  <span className={score > 0.6 ? "rq-diff-check" : "rq-diff-cross"}>
+                                    {score > 0.6 ? "✓" : "✗"}
+                                  </span>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  vendors.filter(v => vendorStatus[v.name] === "shortlisted").map(v => (
+                    <div key={v.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 700, color: "#111827" }}>{v.name}</div>
+                      <div style={{ fontSize: 11, color: "#9CA3AF" }}>{v.category}</div>
+                    </div>
+                  ))
+                )}
+                {/* Cost range */}
+                {vendors.length > 0 && (() => {
+                  const prices = vendors.filter(v => v.estimatedPrice).map(v => {
+                    const m = v.estimatedPrice?.match(/[\d,]+/g);
+                    return m ? parseInt(m[0].replace(/,/g, '')) : null;
+                  }).filter(Boolean);
+                  if (prices.length < 2) return null;
+                  const low = Math.min(...prices);
+                  const high = Math.max(...prices);
+                  return (
+                    <div className="rq-cost-band">
+                      <div>
+                        <div className="rq-cost-label">Market pricing range</div>
+                        <div className="rq-cost-range">${(low/1000).toFixed(0)}K – ${(high/1000).toFixed(0)}K <span style={{ fontSize: 13, fontWeight: 400, color: "#9CA3AF" }}>/ yr</span></div>
+                      </div>
+                      <div style={{ fontSize: 10, color: "#9CA3AF", fontStyle: "italic", marginLeft: "auto", maxWidth: 160, textAlign: "right" }}>AI estimate — verify with vendors</div>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Timeline — appears after date extraction */}
+        {(rfpStart && goLive) && (
+          <div className="rq-output-card">
+            <div className="rq-output-card-label">The plan</div>
+            {timelineDefaulted && (
+              <div style={{ fontSize: 11, color: "#C2410C", marginBottom: 8, fontFamily: "'Syne',sans-serif" }}>⚠ No deadline provided — defaulted to 90 days. Adjust in The Plan tab.</div>
+            )}
+            <div className="rq-tl-row">
+              <div className="rq-tl-box">
+                <div className="rq-tl-label">Start</div>
+                <div className="rq-tl-val">{new Date(rfpStart + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+              </div>
+              <div className="rq-tl-box">
+                <div className="rq-tl-label">Go-live</div>
+                <div className="rq-tl-val">{new Date(goLive + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+              </div>
+              <div className="rq-tl-box">
+                <div className="rq-tl-label">Duration</div>
+                <div className="rq-tl-val">{Math.round(calDaysBetween(rfpStart, goLive) / 7)}w</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Narrative — appears after auto-flow completes */}
+        {(narrative || narrativeBusy) && (
+          <div className="rq-output-card">
+            <div className="rq-output-card-label">Business case</div>
+            {narrativeBusy ? (
+              <div className="rq-output-building">
+                <div className="rq-output-building-dot" />
+                <div className="rq-output-building-text">Writing business case…</div>
+              </div>
+            ) : (
+              <div className="rq-output-card-body" style={{ whiteSpace: "pre-line" }}>{narrative}</div>
+            )}
+          </div>
+        )}
+      </>
+    );
+  })();
+
+  const sidebarNav = advancedDrawer;
+  const topbar = null;
+
+  return (;
 
   return (
     <div className="rq-root">
@@ -2186,11 +2252,189 @@ export default function RequirementsAgent() {
           </div>
         </div>
       )}
+
+      {/* Advanced drawer */}
+      {advancedDrawer}
+
       <div className="rq-shell">
-        {sidebarNav}
-        <div className="rq-main">
-          {topbar}
+        {/* ── LEFT: Chat panel ── */}
+        <div className="rq-chat-panel">
+          <div className="rq-chat-header">
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button className="rq-hamburger" style={{ display: "flex" }} onClick={() => setSidebarOpen(o => !o)} aria-label="Workspace">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect y="2" width="16" height="1.5" rx=".75" fill="currentColor"/><rect y="7.25" width="16" height="1.5" rx=".75" fill="currentColor"/><rect y="12.5" width="16" height="1.5" rx=".75" fill="currentColor"/></svg>
+              </button>
+              <div className="rq-chat-logo">Pario<span className="rq-chat-logo-dot">.</span></div>
+              {tenantBrandName && <div className="rq-chat-tenant">{tenantBrandName}</div>}
+            </div>
+            <div className="rq-chat-actions">
+              {saveStatus === "saving" && <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "#D97706" }}>Saving…</span>}
+              {saveStatus === "saved" && lastSaved && <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "#C2410C" }}>Saved</span>}
+              <button className="rq-btn-ghost" style={{ fontSize: 9, padding: "5px 10px" }} onClick={() => {
+                if (formalScope || scopeBullets.length > 0 || chatMessages.length > 0) {
+                  if (!window.confirm("Start a new project? Your current project will remain saved.")) return;
+                }
+                resetSession(); setView("scope");
+              }}><Plus size={10} /> New</button>
+              <button className="rq-btn-ghost" style={{ fontSize: 9, padding: "5px 10px" }} onClick={() => setView("sessions")}><FileText size={10} /> Projects</button>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="rq-messages" id="chat-messages">
+            {sessionLoading && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "8px 0" }}>
+                <div className="rq-skeleton" style={{ height: 60, width: "80%" }} />
+                <div className="rq-skeleton" style={{ height: 40, width: "60%", alignSelf: "flex-end" }} />
+                <div className="rq-skeleton" style={{ height: 80, width: "85%" }} />
+              </div>
+            )}
+            {!sessionLoading && chatMessages.length === 0 && (
+              <div style={{ padding: "24px 0" }}>
+                <div className="rq-msg rq-msg-bot">
+                  <div className="rq-msg-label">Pario</div>
+                  <div className="rq-bubble">
+                    {tenantBrandName ? `Welcome, ${userProfile?.name ? userProfile.name.split(' ')[0] : tenantBrandName.split(' ')[0]}. ` : ""}
+                    Tell me about the problem you're trying to solve. What's broken or missing, and why does it matter now?
+                  </div>
+                </div>
+              </div>
+            )}
+            {chatMessages.map((m, i) => (
+              <div key={i} className={`rq-msg ${m.role === "user" ? "rq-msg-user" : "rq-msg-bot"}`}>
+                <div className="rq-msg-label">{m.role === "user" ? (userProfile?.name?.split(' ')[0] || "You") : "Pario"}</div>
+                <div className="rq-bubble" style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>
+              </div>
+            ))}
+            {chatBusy && (
+              <div className="rq-msg rq-msg-bot">
+                <div className="rq-msg-label">Pario</div>
+                <div className="rq-bubble">
+                  <span className="spin" style={{ display: "inline-block", marginRight: 6 }}><Loader size={12} /></span>
+                  <span style={{ color: "#9CA3AF", fontSize: 12 }}>Thinking…</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Scope approved state — show generate button */}
+          {scopeApproved && !autoFlowing && (
+            <div style={{ padding: "12px 18px", borderTop: "1px solid rgba(0,0,0,0.07)", background: "#FFF7ED", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#C2410C" }}>
+                  Scope confirmed. Ready to build your business case.
+                </div>
+                <button className="rq-btn-primary" onClick={doAutoFlow} style={{ fontSize: 11, flexShrink: 0 }}>
+                  Build business case →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Chat input */}
+          {!scopeApproved && (
+            <div className="rq-chat-input-wrap">
+              <div className="rq-chat-input-row">
+                <textarea
+                  className="rq-chat-textarea"
+                  placeholder={chatBusy ? "Pario is thinking…" : "Reply to Pario…"}
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  disabled={chatBusy || scopeApproved}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (chatInput.trim() && !chatBusy) doSendChatMessage(chatInput); }
+                  }}
+                  rows={1}
+                />
+                <button className="rq-chat-send" onClick={() => doSendChatMessage(chatInput)} disabled={chatBusy || !chatInput.trim() || scopeApproved}>
+                  <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT: Output panel ── */}
+        <div className="rq-output-panel">
+          <div className="rq-output-header">
+            <div>
+              <div className="rq-output-title">{projectTitle || "Business case"}</div>
+              <div className="rq-output-sub">
+                {autoFlowing ? "Building your evaluation package…" : narrative ? "Complete — ready to export" : formalScope ? "Building as you go" : "Waiting for intake"}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="rq-output-steps">
+                {outputSteps.map((s, i) => (
+                  <div key={s.key} className={`rq-output-step ${s.done ? "done" : i === activeStep ? "active" : ""}`}>
+                    {s.label}
+                  </div>
+                ))}
+              </div>
+              {formalScope && (
+                <button className="rq-btn-ghost" style={{ fontSize: 9, padding: "5px 10px" }} onClick={() => setSidebarOpen(true)}>
+                  Edit details →
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="rq-output-body">
+            {outputContent}
+          </div>
+
+          {/* Export row — activates when narrative is ready */}
+          <div className="rq-export-row">
+            <button className="rq-btn-primary" onClick={doExport} disabled={!narrative || exportBusy} style={{ fontSize: 11, padding: "9px 18px" }}>
+              {exportBusy ? <><Loader size={12} className="spin" /> Exporting…</> : <><FileText size={12} /> Export PDF</>}
+            </button>
+            <button className="rq-btn-ghost" onClick={doExport} disabled={!narrative || exportBusy} style={{ fontSize: 11, padding: "9px 18px" }}>
+              {exportBusy ? <><Loader size={12} className="spin" /></> : <><FileText size={12} /> Export .docx</>}
+            </button>
+            {!narrative && <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: "auto" }}>Available when complete</span>}
+            {narrative && (
+              <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: "auto" }}>
+                {saveStatus === "saving" ? "Saving…" : lastSaved ? `Last saved ${lastSaved.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : ""}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
           <div className="rq-content">
+
+            {/* ── Auto-flow progress overlay ── */}
+            {autoFlowing && (
+              <div className="rq-fade" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "70vh", padding: "48px 24px" }}>
+                <Loader size={36} className="spin" style={{ color: "#C2410C", marginBottom: 28 }} />
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 800, color: "#111827", marginBottom: 10, letterSpacing: "-0.02em" }}>
+                  Building your evaluation package
+                </div>
+                <div style={{ fontFamily: "'Lora',serif", fontSize: 13, color: "#9CA3AF", marginBottom: 40, textAlign: "center", maxWidth: 400, lineHeight: 1.7 }}>
+                  Pario is generating your requirements, vendor discovery questions, market research, and business case. This takes about 60 seconds.
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 380 }}>
+                  {[
+                    { label: "Analyzing scope", done: requirements.length > 0 },
+                    { label: "Building requirements", done: requirements.length > 0 },
+                    { label: "Generating vendor questions", done: questions.scope?.length > 0 },
+                    { label: "Researching the market", done: vendors.length > 0 },
+                    { label: "Writing business case", done: !!narrative },
+                  ].map((step, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: step.done ? "#F0FDF4" : "#FFFFFF", border: `1px solid ${step.done ? "#BBF7D0" : "rgba(0,0,0,0.07)"}`, borderRadius: 8, transition: "all .3s" }}>
+                      <div style={{ width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: step.done ? "#22C55E" : "#F1F5F9", flexShrink: 0 }}>
+                        {step.done
+                          ? <span style={{ color: "white", fontSize: 11, fontWeight: 700 }}>✓</span>
+                          : <Loader size={10} className="spin" style={{ color: "#9CA3AF" }} />
+                        }
+                      </div>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 12, fontWeight: 600, color: step.done ? "#15803D" : "#6B7280" }}>{step.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ── Loading skeleton ── */}
             {sessionLoading && (
