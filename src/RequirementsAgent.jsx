@@ -1248,6 +1248,7 @@ export default function RequirementsAgent() {
       }
 
       // DONE detection — catch DONE anywhere in the reply followed by a JSON array
+      console.log('[Pario] Raw reply first 200 chars:', reply?.substring(0, 200));
       const doneMatch = reply.match(/DONE\s*\n?([\s\S]*?\[[\s\S]*?\])/);
       if (doneMatch) {
         const jsonPart = doneMatch[1].trim();
