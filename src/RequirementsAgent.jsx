@@ -1954,85 +1954,11 @@ export default function RequirementsAgent() {
 
   // ── Splash ──
   if (view === "splash") {
-    return (
-      <div className="rq-root">
-        <div className="rq-shell">
-          <div className="rq-sidebar">
-            <div className="rq-sidebar-logo" style={{ cursor: "pointer" }} onClick={() => setView("splash")}>
-              <div className="rq-sidebar-brand">Pario</div>
-              {tenantBrandName && (
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 600, color: "#374151", marginTop: 3 }}>{tenantBrandName}</div>
-              )}
-            </div>
-            <div className="rq-nav">
-              <div className="rq-nav-item active"><div className="rq-nav-num" style={{ fontSize: 8 }}>⌂</div>Home</div>
-              <div className="rq-nav-item" onClick={() => setView("sessions")}><div className="rq-nav-num" style={{ fontSize: 8 }}>S</div>Projects</div>
-            </div>
-          </div>
-          <div className="rq-main">
-            <div className="rq-topbar">
-              <div className="rq-topbar-left">
-                <div className="rq-topbar-title">Home</div>
-              </div>
-            </div>
-            <div className="rq-content" style={{ maxWidth: 720, margin: "0 auto", padding: "48px 32px" }}>
-
-              {/* Hero */}
-              <div style={{ marginBottom: 52 }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", color: "#C2410C", marginBottom: 14 }}>
-                  Pario{tenantBrandName ? ` · ${tenantBrandName}` : ""}
-                </div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 38, fontWeight: 800, color: "#111827", lineHeight: 1.12, marginBottom: 16 }}>Build the business case.<br />Own the conversation.</div>
-                <div style={{ fontFamily: "'Lora',serif", fontSize: 15, color: "#C2410C", lineHeight: 1.6, marginBottom: 12, fontStyle: "italic" }}>
-                  "Software buying moves pretty fast. If you don't stop and define what you need, vendors will define it for you."
-                </div>
-                <div style={{ fontFamily: "'Lora',serif", fontSize: 16, color: "#6B7280", lineHeight: 1.75, marginBottom: 28, maxWidth: 560 }}>
-                  Pario gives any business leader the structured thinking required to evaluate software on their own terms, not the vendor's.
-                </div>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <button className="rq-btn-primary" style={{ padding: "13px 28px", fontSize: 13 }} onClick={resetSession}>
-                    <Plus size={15} /> Start new project
-                  </button>
-                  <button className="rq-btn-ghost" style={{ padding: "13px 20px" }} onClick={() => setView("sessions")}>View projects</button>
-                </div>
-              </div>
-
-              {/* What it does */}
-              <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", paddingTop: 40, marginBottom: 48 }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "#9CA3AF", marginBottom: 24 }}>What it does</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                  {[
-                    { n: "01", title: "Scope", body: "Describe the business problem. The agent drafts a formal scope, evaluates it for quality, and iterates until it meets the bar." },
-                    { n: "02", title: "Requirements", body: "Generates binary success criteria — yes/no questions vendors must answer. No narratives, no wiggle room." },
-                    { n: "03", title: "Due Diligence", body: "Discovery questions per requirement that expose how vendors actually implement each capability." },
-                    { n: "04", title: "Market Survey", body: "Agent-identified vendor shortlist with pricing signals and requirements fit — mainstream and niche categories alike." },
-                    { n: "05", title: "Buying Timeline", body: "Buying timeline calibrated to your channel with a Gantt chart ready to share." },
-                    { n: "06", title: "Business Case", body: "Narrative, vendor comparison, and pricing estimates formatted for executive presentation or internal alignment." },
-                  ].map(s => (
-                    <div key={s.n} style={{ background: "#FFFFFF", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 10, padding: "18px 20px" }}>
-                      <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "#C2410C", marginBottom: 6 }}>{s.n}</div>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 6 }}>{s.title}</div>
-                      <div style={{ fontFamily: "'Lora',serif", fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>{s.body}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", paddingTop: 28, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
-                <div style={{ fontFamily: "'Lora',serif", fontSize: 12, color: "#9CA3AF", lineHeight: 1.7, maxWidth: 420 }}>
-                  Pario encodes 20 years of software buying experience into a structured workflow. The methodology is simple: define what you need before vendors tell you what you want.
-                </div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: "#D1D5DB", paddingTop: 4 }}>Pario</div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    // In new consumer UI, splash is replaced by the chat view
+    // Redirect to scope immediately
+    setView("scope");
+    return null;
   }
-
   // ── Shared sidebar ──
   // ── Output panel step indicator ──────────────────────────
   const outputSteps = [
