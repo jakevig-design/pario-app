@@ -1966,8 +1966,6 @@ export default function RequirementsAgent() {
   useEffect(() => {
     if (view === "splash") setView("scope");
   }, [view]);
-
-  if (view === "splash") return null;
   // ── Shared sidebar ──
   // ── Output panel step indicator ──────────────────────────
   const outputSteps = [
@@ -2261,7 +2259,7 @@ export default function RequirementsAgent() {
       )}
 
       {/* ── Main app shell ── */}
-      {view !== "sessions" && (
+      {view !== "sessions" && view !== "splash" && (
         <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
 
           {/* ── Pill nav ── */}
