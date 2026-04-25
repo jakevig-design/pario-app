@@ -1220,7 +1220,7 @@ export default function RequirementsAgent() {
         body: JSON.stringify({
           system: systemPrompt,
           user: newMessages.map(m => `${m.role === "user" ? "User" : "Pario"}: ${m.content}`).join("\n\n"),
-          model: "claude-haiku-4-5-20251001",
+          model: "claude-sonnet-4-6",
         }),
         signal: controller.signal,
       });
@@ -1249,27 +1249,34 @@ export default function RequirementsAgent() {
         return;
       }
 
-      // DONE detection — catch DONE anywhere in the reply followed by a JSON array
-      console.log('[Pario] Raw reply first 200 chars:', reply?.substring(0, 200));
-      const doneMatch = reply.match(/DONE\s*\n?([\s\S]*?\[[\s\S]*?\])/);
-      if (doneMatch) {
-        const jsonPart = doneMatch[1].trim();
-        const arrMatch = jsonPart.match(/\[[\s\S]*\]/);
-        if (arrMatch) {
+      // DONE detection — catch DONE in any format followed by a JSON array
+      console.log('[Pario] Raw reply first 300 chars:', reply?.substring(0, 300));
+      const upperReply = reply.toUpperCase();
+      const hasDone = upperReply.includes('DONE');
+      const hasArray = reply.includes('[') && reply.includes(']');
+      console.log('[Pario] hasDone:', hasDone, 'hasArray:', hasArray);
+
+      if (hasDone && hasArray) {
+        // Find the outermost JSON array — first [ to last ]
+        const arrStart = reply.indexOf('[');
+        const arrEnd = reply.lastIndexOf(']');
+        if (arrStart !== -1 && arrEnd > arrStart) {
           try {
-            const bullets = JSON.parse(arrMatch[0]);
+            const jsonStr = reply.substring(arrStart, arrEnd + 1);
+            console.log('[Pario] Attempting JSON parse, length:', jsonStr.length);
+            const bullets = JSON.parse(jsonStr);
             if (Array.isArray(bullets) && bullets.length > 0) {
               setScopeBullets(bullets);
               setChatCollapsed(true);
               setBulletsCollapsed(false);
               setContinuingChat(false);
-              // Auto-trigger scope generation with bullets passed directly
-              // (can't rely on state update having flushed yet)
-              console.log('[Pario] DONE detected, bullets:', bullets.length, '— triggering scope generation');
+              console.log('[Pario] DONE + array parsed, bullets:', bullets.length, '— firing scope generation');
               setTimeout(() => doGenerateScopeFromBullets(bullets), 100);
               return;
             }
-          } catch { /* fall through to render as message */ }
+          } catch(e) {
+            console.log('[Pario] JSON parse failed:', e.message);
+          }
         }
       }
 
