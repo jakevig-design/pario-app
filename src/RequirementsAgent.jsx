@@ -951,6 +951,13 @@ export default function RequirementsAgent() {
   const isSkipped = (val) => val.trim().toLowerCase() === "skip";
   const allFlagResponsesFilled = scopeFlags.every((_, idx) => (flagResponses[idx] || "").trim().length > 0);
 
+  // ── Identity helper — defined early so all functions can use it ──
+  const getIdentity = () => ({
+    userId: authUser?.id,
+    tenantId: userProfile?.tenant_id,
+    sessionId,
+  });
+
   // Unsaved changes warning on close/navigate away
   useEffect(() => {
     const handler = (e) => {
@@ -1741,11 +1748,7 @@ export default function RequirementsAgent() {
     }
   }, [scopeApproved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getIdentity = () => ({
-    userId: authUser?.id,
-    tenantId: userProfile?.tenant_id,
-    sessionId,
-  });
+  // getIdentity defined earlier in component
 
   const doLogFeedback = (type, value) => {
     const setters = { scope: setScopeFeedback, requirements: setReqsFeedback, vendors: setVendorsFeedback };
