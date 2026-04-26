@@ -1319,6 +1319,7 @@ export default function RequirementsAgent() {
     if (formalScope) setPrevScope(formalScope);
     setScopeBusy(true); setScopeErr(""); setScopeFlags([]); setScopeApproved(false);
     try {
+      const identity = { userId: authUser?.id, tenantId: userProfile?.tenant_id, sessionId };
       const p = answers.companyProfile || tenantProfileRef.current;
       const companyCtx = p ? [
         p.name && `Company: ${p.name}`,
@@ -1331,11 +1332,16 @@ export default function RequirementsAgent() {
       ].filter(Boolean).join("\n") : "";
       const bulletText = bullets.map(b => `• ${b}`).join("\n");
       const userMsg = companyCtx ? `${companyCtx}\n\nApproved scope bullets:\n${bulletText}` : `Scope bullets:\n${bulletText}`;
-      const scope = await callClaude(P_SCOPE_GENERATE, userMsg, false, null, getIdentity());
+      console.log('[Pario] Calling callClaude for scope generation...');
+      const scope = await callClaude(P_SCOPE_GENERATE, userMsg, false, null, identity);
+      console.log('[Pario] Scope generated, length:', scope?.length);
       setFormalScope(scope.trim());
       setBulletsCollapsed(true);
       await doEvaluateScope(scope.trim());
-    } catch { setScopeErr("Could not generate scope. Please try again."); }
+    } catch(e) {
+      console.error('[Pario] doGenerateScopeFromBullets error:', e.message);
+      setScopeErr("Could not generate scope. Please try again.");
+    }
     finally { setScopeBusy(false); }
   };
 
