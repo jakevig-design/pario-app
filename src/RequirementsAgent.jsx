@@ -1408,29 +1408,38 @@ export default function RequirementsAgent() {
   };
 
   const doEvaluateScope = async (scopeText) => {
+    console.log('[Pario] doEvaluateScope entered, scope length:', scopeText?.length);
     try {
       const result = await callJSON(P_SCOPE_EVALUATE, `Scope to evaluate:\n\n${scopeText}`, false, null, getIdentity());
+      console.log('[Pario] eval result — passed:', result?.passed, 'flags:', result?.flags?.length ?? 0);
       if (result.passed && result.flags.length === 0) {
         setScopeFlags([]);
         setFlagResponses({});
         // Fire expert questions
         try {
           const eq = await callJSON(P_SCOPE_EXPERT, `Scope:\n\n${scopeText}`, false, null, getIdentity());
+          console.log('[Pario] expert questions returned:', eq?.length ?? 0);
           if (eq && eq.length > 0) {
             setExpertQuestions(eq);
             setExpertApproved(false);
           } else {
+            console.log('[Pario] no expert questions — approving scope');
             setExpertApproved(true);
+            setScopeApproved(true);
           }
-        } catch {
+        } catch (e) {
+          console.log('[Pario] expert questions threw — approving scope (fail open):', e.message);
           setExpertApproved(true); // fail open
+          setScopeApproved(true);
         }
       } else {
+        console.log('[Pario] eval failed or has flags — awaiting user');
         setScopeFlags(result.flags || []);
         setFlagResponses({});
         setScopeApproved(false);
       }
-    } catch {
+    } catch (e) {
+      console.log('[Pario] eval threw — approving scope (fail open):', e.message);
       setScopeFlags([]);
       setScopeApproved(true);
       logEvent("scope_approved", { sessionId, userId: authUser?.id, tenantId: userProfile?.tenant_id });
