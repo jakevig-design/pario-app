@@ -1411,8 +1411,11 @@ export default function RequirementsAgent() {
     console.log('[Pario] doEvaluateScope entered, scope length:', scopeText?.length);
     try {
       const result = await callJSON(P_SCOPE_EVALUATE, `Scope to evaluate:\n\n${scopeText}`, false, null, getIdentity());
-      console.log('[Pario] eval result — passed:', result?.passed, 'flags:', result?.flags?.length ?? 0);
-      if (result.passed && result.flags.length === 0) {
+      console.log('[Pario] eval raw result:', result);
+      const flags = Array.isArray(result?.flags) ? result.flags : [];
+      console.log('[Pario] eval result — passed:', result?.passed, 'flags:', flags.length);
+      // Flags are the source of truth: empty flags = clean pass, regardless of whether `passed` is present.
+      if (flags.length === 0) {
         setScopeFlags([]);
         setFlagResponses({});
         // Fire expert questions
@@ -1433,8 +1436,8 @@ export default function RequirementsAgent() {
           setScopeApproved(true);
         }
       } else {
-        console.log('[Pario] eval failed or has flags — awaiting user');
-        setScopeFlags(result.flags || []);
+        console.log('[Pario] eval has flags — awaiting user, flag count:', flags.length);
+        setScopeFlags(flags);
         setFlagResponses({});
         setScopeApproved(false);
       }
