@@ -858,6 +858,7 @@ export default function RequirementsAgent() {
   const [step, setStep] = useState(0);
   const [projectTitle, setProjectTitle] = useState("");
   const [view, setView] = useState("splash");
+  const [expandedBlock, setExpandedBlock] = useState(null);
   const [sessionsList, setSessionsList] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(false);
@@ -2605,11 +2606,11 @@ export default function RequirementsAgent() {
                       </div>
                       {NAV_VIEWS.filter(v => v !== "scope").map((v, i) => {
                         const labels = { requirements: "Differentiators", questions: "Pressure Test", market: "The Landscape", timeline: "The Plan", summary: "Executive Brief" };
-                        const isExpanded = view === v;
+                        const isExpanded = expandedBlock === v;
                         return (
                           <div key={v} style={{ background: "#FFFFFF", borderRadius: 12, border: "1px solid rgba(0,0,0,0.07)", marginBottom: 8, overflow: "hidden" }}>
                             <div
-                              onClick={() => setView(isExpanded ? "summary" : v)}
+                              onClick={() => setExpandedBlock(expandedBlock === v ? null : v)}
                               style={{ padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: isExpanded ? "#FFF7ED" : "#FFFFFF" }}
                             >
                               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2620,7 +2621,7 @@ export default function RequirementsAgent() {
                             {isExpanded && (
                               <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", padding: "16px", maxHeight: 400, overflowY: "auto" }}>
                                 {/* Render the appropriate tab content */}
-                                {view === "requirements" && (
+                                {v === "requirements" && (
                                   <div>
                                     <StaleWarning />
                                     {reqsBusy ? <div className="rq-loading-center"><Loader size={20} className="spin" style={{ color: "#C2410C" }} /></div> : (
@@ -2638,7 +2639,7 @@ export default function RequirementsAgent() {
                                     )}
                                   </div>
                                 )}
-                                {view === "questions" && (
+                                {v === "questions" && (
                                   <div>
                                     <StaleWarning />
                                     {qBusy ? <div className="rq-loading-center"><Loader size={20} className="spin" style={{ color: "#C2410C" }} /></div> : (
@@ -2659,7 +2660,7 @@ export default function RequirementsAgent() {
                                     )}
                                   </div>
                                 )}
-                                {view === "market" && (
+                                {v === "market" && (
                                   <div>
                                     <StaleWarning />
                                     {marketBusy ? <div className="rq-loading-center"><Loader size={20} className="spin" style={{ color: "#C2410C" }} /></div> : (
@@ -2682,7 +2683,7 @@ export default function RequirementsAgent() {
                                     )}
                                   </div>
                                 )}
-                                {view === "timeline" && (
+                                {v === "timeline" && (
                                   <div>
                                     {timelineDefaulted && (
                                       <div style={{ background: "#FFF7ED", border: "1px solid rgba(194,65,12,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 11, color: "#C2410C", fontFamily: "'Syne',sans-serif", fontWeight: 600 }}>
@@ -2692,7 +2693,7 @@ export default function RequirementsAgent() {
                                     <GanttChart activities={activities} />
                                   </div>
                                 )}
-                                {view === "summary" && (
+                                {v === "summary" && (
                                   <div>
                                     <div className="rq-scope-box" style={{ marginBottom: 16 }}>{formalScope}</div>
                                     <div style={{ display: "flex", gap: 10 }}>
