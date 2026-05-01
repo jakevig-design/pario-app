@@ -2520,16 +2520,6 @@ export default function RequirementsAgent() {
                       )}
                     </div>
 
-                    {/* Scope approved CTA */}
-                    {scopeApproved && !autoFlowing && (
-                      <div style={{ padding: "12px 18px", background: "#FFF7ED", borderTop: "1px solid rgba(194,65,12,0.15)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        <div style={{ fontFamily: "'Lora',serif", fontSize: 13, color: "#92400E", fontStyle: "italic" }}>Got it, take a break while I get some work done</div>
-                        <button className="rq-btn-primary" style={{ flexShrink: 0 }} onClick={() => { setChatCollapsed(true); doAutoFlow(); }}>
-                          Build business case →
-                        </button>
-                      </div>
-                    )}
-
                     {/* Chat input */}
                     {!scopeApproved && (
                       <div style={{ padding: "10px 18px", borderTop: "1px solid rgba(0,0,0,0.07)", display: "flex", gap: 8, alignItems: "flex-end" }}>
