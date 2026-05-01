@@ -2557,6 +2557,56 @@ export default function RequirementsAgent() {
                   </div>
                 )}
 
+                {/* ── Scope evaluation flags — shown when P_SCOPE_EVALUATE found gaps ── */}
+                {scopeFlags.length > 0 && !autoFlowing && !narrative && (
+                  <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 12, padding: "18px 20px", marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#F59E0B", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <span style={{ color: "white", fontSize: 12, fontWeight: 700 }}>!</span>
+                      </div>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 800, color: "#92400E", letterSpacing: "-0.01em" }}>
+                        Your scope has {scopeFlags.length === 1 ? "a gap" : `${scopeFlags.length} gaps`} to address before we can build the business case
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: "'Lora',serif", fontSize: 12, color: "#78350F", lineHeight: 1.55, marginBottom: 14 }}>
+                      Answer each prompt below — or type "skip" if you'd rather not. We'll fold your responses back into the scope and continue.
+                    </div>
+                    {scopeErr && (
+                      <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#B91C1C", marginBottom: 10 }}>{scopeErr}</div>
+                    )}
+                    {scopeFlags.map((f, idx) => (
+                      <div key={idx} style={{ marginBottom: 12 }}>
+                        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#C2410C", marginBottom: 4 }}>
+                          {f.criterion || `Gap ${idx + 1}`}
+                        </div>
+                        <div style={{ fontFamily: "'Lora',serif", fontSize: 13, color: "#374151", lineHeight: 1.55, marginBottom: 6 }}>
+                          {f.prompt || f.issue}
+                        </div>
+                        <textarea
+                          value={flagResponses[idx] || ""}
+                          onChange={e => setFlagResponses(prev => ({ ...prev, [idx]: e.target.value }))}
+                          placeholder='Your answer (or "skip")'
+                          disabled={scopeBusy}
+                          rows={2}
+                          style={{ width: "100%", border: "1px solid rgba(0,0,0,0.12)", borderRadius: 8, padding: "8px 11px", fontSize: 13, resize: "vertical", background: "#FFFFFF", color: "#111827", fontFamily: "'Lora',serif", outline: "none", lineHeight: 1.5, boxSizing: "border-box" }}
+                        />
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+                      <button
+                        className="rq-btn-primary"
+                        onClick={doRefineScope}
+                        disabled={scopeBusy || !allFlagResponsesFilled}
+                      >
+                        {scopeBusy ? <><Loader size={11} className="spin" /> Refining…</> : <>Refine scope →</>}
+                      </button>
+                      {!allFlagResponsesFilled && (
+                        <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 10, color: "#9CA3AF" }}>Answer every prompt (or type "skip") to continue</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* ── OUTPUT ── appears after auto-flow */}
                 {narrative && !autoFlowing && (
                   <>
