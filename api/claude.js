@@ -20,7 +20,7 @@ const LIMITS = { perMinute: 10, perDay: 100 };
 const DEMO_LIMITS = { perMinute: 5, perDay: 30 };
 const DEMO_TENANTS = ['acme', 'demo'];
 
-function checkRateLimit(userId, tenantId) {
+function checkRateLimit(userId, tenantId, origin) {
   const now = Date.now();
   const minuteAgo = now - 60 * 1000;
   const dayAgo = now - 24 * 60 * 60 * 1000;
@@ -30,8 +30,10 @@ function checkRateLimit(userId, tenantId) {
   rateLimitStore.set(userId, recent);
   const lastMinute = recent.filter(t => t > minuteAgo).length;
 
-  // Apply tighter limits for demo tenants
-  const limits = DEMO_TENANTS.includes(tenantId) ? DEMO_LIMITS : LIMITS;
+  // dev subdomain shares the demo tenant for auto-login but is for internal testing —
+  // give it the full limits so a complete cascade doesn't hit 429.
+  const isDevOrigin = origin === 'https://dev.planwithpario.com';
+  const limits = (DEMO_TENANTS.includes(tenantId) && !isDevOrigin) ? DEMO_LIMITS : LIMITS;
 
   if (lastMinute >= limits.perMinute) return { allowed: false, reason: 'rate_limit_minute', message: 'Too many requests — please wait a moment before trying again.' };
   if (recent.length >= limits.perDay) return {
@@ -275,7 +277,7 @@ export default async function handler(req, res) {
   const tenantId = req.headers['x-tenant-id'] || null;
   const sessionId = req.headers['x-session-id'] || null;
 
-  const rateCheck = checkRateLimit(userId, tenantId);
+  const rateCheck = checkRateLimit(userId, tenantId, origin);
   if (!rateCheck.allowed) return res.status(429).json({ error: { type: rateCheck.reason, message: rateCheck.message } });
 
   const budgetCheck = await checkTenantBudget(tenantId);
