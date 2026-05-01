@@ -2509,6 +2509,7 @@ export default function RequirementsAgent() {
                               ];
                               setScopeBullets(testBullets);
                               setChatCollapsed(true);
+                              setPrepActive(true);
                               doGenerateScopeFromBullets(testBullets);
                             }}
                           >
