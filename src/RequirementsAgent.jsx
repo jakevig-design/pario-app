@@ -660,7 +660,7 @@ async function buildDocx({ sessionId, projectTitle, formalScope, narrative, requ
     for (const req of requirements) {
       const qs = questions[req.id] || [];
       if (!qs.length) continue;
-      qChildren.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `${req.id}: ${req.text}`, font: "Arial" })] }));
+      qChildren.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: req.text, font: "Arial" })] }));
       qs.forEach(q => {
         qChildren.push(new Paragraph({ numbering: { reference: "nums", level: 0 }, children: [new TextRun({ text: q.text, font: "Arial", size: 22 })] }));
         if (q.type === "multiple_choice" && q.options?.length) {
@@ -717,12 +717,11 @@ async function buildDocx({ sessionId, projectTitle, formalScope, narrative, requ
         new Paragraph({ children: [new TextRun("")] }),
         new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: "2. Functional Requirements", font: "Arial" })] }),
         new Table({
-          width: { size: 9360, type: WidthType.DXA }, columnWidths: [1440, 7920],
+          width: { size: 9360, type: WidthType.DXA }, columnWidths: [9360],
           rows: [
-            new TableRow({ children: [hCell("ID", 1440), hCell("Requirement", 7920)] }),
+            new TableRow({ children: [hCell("Requirement", 9360)] }),
             ...requirements.map((r, i) => new TableRow({ children: [
-              new TableCell({ borders, margins: cm, width: { size: 1440, type: WidthType.DXA }, shading: { fill: i % 2 ? "FAF9F7" : "FFFFFF", type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: r.id, font: "Arial Narrow", size: 20 })] })] }),
-              bCell(r.text, 7920, i % 2)
+              bCell(r.text, 9360, i % 2)
             ]}))
           ]
         }),
@@ -1934,7 +1933,7 @@ export default function RequirementsAgent() {
 
   <h1>Functional Requirements</h1>
   ${requirements.length > 0
-    ? requirements.map(r => `<div class="req-row"><div class="req-id">${r.id}</div><div class="req-text">${r.text}</div></div>`).join('')
+    ? requirements.map(r => `<div class="req-row"><div class="req-text">${r.text}</div></div>`).join('')
     : '<p>No requirements generated.</p>'
   }
 
