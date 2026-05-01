@@ -4,7 +4,7 @@ import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, AlignmentType, HeadingLevel, LevelFormat } from "docx";
 import { saveSession, loadSessions, loadSession, deleteSession, signIn, signUp, signOut, getSession, onAuthStateChange, loadUserProfile, saveUserProfile, logEvent } from "./supabase";
 import { P_SCOPE_CHAT, P_SCOPE_GENERATE, P_SCOPE_EVALUATE, P_SCOPE_REFINE, P_SCOPE_EXPERT, P_REQS, P_QS, P_MARKET, P_NARRATIVE, P_TIMELINE_DATE, FIVE_WS } from "./prompts";
-import { SCOPE_QUIPS, TURNAROUND_PROMISE } from "./quips";
+import { PARIO_QUIPS, TURNAROUND_PROMISE } from "./quips";
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 const _link = document.createElement("link");
@@ -1098,6 +1098,7 @@ export default function RequirementsAgent() {
     setChatMessages([]);
     setChatInput("");
     setChatCollapsed(false);
+    setPrepActive(false);
     setBulletsCollapsed(false);
     setContinuingChat(false);
     setInputCollapsed(false);
@@ -1309,6 +1310,7 @@ export default function RequirementsAgent() {
               setChatCollapsed(true);
               setBulletsCollapsed(false);
               setContinuingChat(false);
+              setPrepActive(true);
               console.log('[Pario] DONE + array parsed, bullets:', bullets.length, '— firing scope generation');
               setTimeout(() => doGenerateScopeFromBullets(bullets), 100);
               return;
@@ -1380,6 +1382,7 @@ export default function RequirementsAgent() {
     } catch(e) {
       console.error('[Pario] doGenerateScopeFromBullets error:', e.message);
       setScopeErr("Could not generate scope. Please try again.");
+      setPrepActive(false);
     }
     finally { setScopeBusy(false); }
   };
@@ -1474,6 +1477,7 @@ export default function RequirementsAgent() {
         setScopeFlags(flags);
         setFlagResponses({});
         setScopeApproved(false);
+        setPrepActive(false);
       }
     } catch (e) {
       console.log('[Pario] eval threw — approving scope (fail open):', e.message);
@@ -1765,6 +1769,7 @@ export default function RequirementsAgent() {
       console.error("Auto-flow error:", e);
     } finally {
       setAutoFlowing(false);
+      setPrepActive(false);
       setView("summary");
     }
   };
@@ -1786,30 +1791,31 @@ export default function RequirementsAgent() {
     }
   }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Scope-prep card: timer + rotating quip while scope is being generated ──
-  const [scopeQuipIndex, setScopeQuipIndex] = useState(0);
-  const [scopePrepNow, setScopePrepNow] = useState(Date.now());
-  const scopePrepStartRef = useRef(null);
-  const showScopePrep = chatCollapsed && !autoFlowing && !narrative && scopeFlags.length === 0 && (scopeBusy || (formalScope && !scopeApproved));
-  const scopePrepStep = !formalScope ? 'writing' : 'pressureTesting';
+  // ── Unified prep screen: one overlay from DONE detection through narrative ready ──
+  const [prepActive, setPrepActive] = useState(false);
+  const [quipIdx, setQuipIdx] = useState(0);
+  const [prepNow, setPrepNow] = useState(Date.now());
+  const prepStartRef = useRef(null);
 
   useEffect(() => {
-    if (showScopePrep && !scopePrepStartRef.current) scopePrepStartRef.current = Date.now();
-    if (!showScopePrep) scopePrepStartRef.current = null;
-  }, [showScopePrep]);
+    if (prepActive && !prepStartRef.current) {
+      prepStartRef.current = Date.now();
+      setQuipIdx(Math.floor(Math.random() * PARIO_QUIPS.length));
+    }
+    if (!prepActive) prepStartRef.current = null;
+  }, [prepActive]);
 
   useEffect(() => {
-    if (!showScopePrep) return;
-    const id = setInterval(() => setScopePrepNow(Date.now()), 1000);
+    if (!prepActive) return;
+    const id = setInterval(() => setPrepNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [showScopePrep]);
+  }, [prepActive]);
 
-  useEffect(() => { setScopeQuipIndex(0); }, [scopePrepStep]);
   useEffect(() => {
-    if (!showScopePrep) return;
-    const id = setInterval(() => setScopeQuipIndex(i => i + 1), 4500);
+    if (!prepActive) return;
+    const id = setInterval(() => setQuipIdx(i => i + 1), 4500);
     return () => clearInterval(id);
-  }, [showScopePrep]);
+  }, [prepActive]);
 
   // ── Auto-trigger full flow when scope is approved ──────────
   useEffect(() => {
@@ -2446,40 +2452,32 @@ export default function RequirementsAgent() {
               </div>
             </div>
 
-            {/* ── Auto-flow loading screen ── */}
-            {autoFlowing && (
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 24px", background: "#FFFFFF" }}>
-                <Loader size={32} className="spin" style={{ color: "#C2410C", marginBottom: 24 }} />
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, color: "#1E293B", letterSpacing: "-0.02em", marginBottom: 10, textAlign: "center" }}>
-                  Asking the hard questions so you don't have to.
+            {/* ── Unified prep screen — DONE detection through narrative ready ── */}
+            {prepActive && (() => {
+              const elapsedSec = prepStartRef.current ? Math.floor((prepNow - prepStartRef.current) / 1000) : 0;
+              const elapsedStr = `${String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:${String(elapsedSec % 60).padStart(2, '0')}`;
+              const quip = PARIO_QUIPS.length ? PARIO_QUIPS[quipIdx % PARIO_QUIPS.length] : '';
+              return (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 24px", background: "#FFFFFF" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
+                    <Loader size={28} className="spin" style={{ color: "#C2410C" }} />
+                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, color: "#9CA3AF", fontVariantNumeric: "tabular-nums" }}>{elapsedStr}</div>
+                  </div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, color: "#1E293B", letterSpacing: "-0.02em", marginBottom: 12, textAlign: "center" }}>
+                    Asking the hard questions so you don't have to.
+                  </div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, color: "#C2410C", textAlign: "center", marginBottom: 40, letterSpacing: ".04em" }}>
+                    {TURNAROUND_PROMISE}
+                  </div>
+                  <div key={quipIdx} style={{ fontFamily: "'Lora',serif", fontSize: 16, fontStyle: "italic", color: "#374151", textAlign: "center", maxWidth: 480, lineHeight: 1.6, minHeight: 50, animation: "fadeUp .35s ease both" }}>
+                    {quip ? `"${quip}"` : ''}
+                  </div>
                 </div>
-                <div style={{ fontFamily: "'Lora',serif", fontSize: 14, color: "#9CA3AF", textAlign: "center", maxWidth: 400, lineHeight: 1.7, marginBottom: 8 }}>
-                  Building your requirements, researching vendors, and writing your business case.
-                </div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, color: "#C2410C", textAlign: "center", marginBottom: 40, letterSpacing: ".04em" }}>
-                  {TURNAROUND_PROMISE}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 360 }}>
-                  {[
-                    { label: "Identifying differentiators", done: requirements.length > 0 },
-                    { label: "Generating pressure test questions", done: questions.scope?.length > 0 },
-                    { label: "Researching the market", done: vendors.length > 0 },
-                    { label: "Setting the timeline", done: !!rfpStart },
-                    { label: "Writing your business case", done: !!narrative },
-                  ].map((step, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: step.done ? "#F0FDF4" : "#F9F8F8", border: `1px solid ${step.done ? "#BBF7D0" : "rgba(0,0,0,0.06)"}`, borderRadius: 10, transition: "all .3s" }}>
-                      <div style={{ width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: step.done ? "#22C55E" : "#E5E7EB", flexShrink: 0 }}>
-                        {step.done ? <span style={{ color: "white", fontSize: 10, fontWeight: 700 }}>✓</span> : <Loader size={9} className="spin" style={{ color: "#9CA3AF" }} />}
-                      </div>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 12, fontWeight: 600, color: step.done ? "#15803D" : "#9CA3AF" }}>{step.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ── Main scrollable content ── */}
-            {!autoFlowing && (
+            {!prepActive && (
               <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", maxWidth: 760, margin: "0 auto", width: "100%" }}>
 
                 {/* ── CHAT BLOCK ── */}
@@ -2571,48 +2569,6 @@ export default function RequirementsAgent() {
                       </div>
                     )}
                   </div>
-                ) : showScopePrep ? (
-                  /* Scope being prepared — clock + rotating quip */
-                  (() => {
-                    const elapsedSec = scopePrepStartRef.current ? Math.floor((scopePrepNow - scopePrepStartRef.current) / 1000) : 0;
-                    const elapsedStr = `${String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:${String(elapsedSec % 60).padStart(2, '0')}`;
-                    const pool = SCOPE_QUIPS[scopePrepStep] || [];
-                    const quip = pool.length ? pool[scopeQuipIndex % pool.length] : '';
-                    const stepLabels = { writing: 'Writing your scope', pressureTesting: 'Pressure-testing the result' };
-                    const steps = [
-                      { key: 'writing', label: 'Writing your scope', done: !!formalScope, active: scopePrepStep === 'writing' },
-                      { key: 'pressureTesting', label: 'Pressure-testing the result', done: scopeApproved, active: scopePrepStep === 'pressureTesting' },
-                    ];
-                    return (
-                      <div style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", marginBottom: 16, padding: "20px 22px", overflow: "hidden" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <Loader size={14} className="spin" style={{ color: "#C2410C" }} />
-                            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: "#C2410C" }}>
-                              {stepLabels[scopePrepStep]}
-                            </div>
-                          </div>
-                          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#9CA3AF" }}>{elapsedStr}</div>
-                        </div>
-                        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, color: "#374151", marginBottom: 8 }}>
-                          {TURNAROUND_PROMISE}
-                        </div>
-                        <div style={{ fontFamily: "'Lora',serif", fontSize: 13, fontStyle: "italic", color: "#6B7280", lineHeight: 1.55, minHeight: 38 }}>
-                          {quip ? `"${quip}"` : ''}
-                        </div>
-                        <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)", marginTop: 14, paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                          {steps.map(s => (
-                            <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, fontFamily: "'Syne',sans-serif", fontWeight: 600, color: s.done ? "#15803D" : s.active ? "#C2410C" : "#9CA3AF" }}>
-                              <div style={{ width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: s.done ? "#22C55E" : "transparent", border: `1.5px solid ${s.done ? "#22C55E" : s.active ? "#C2410C" : "#E5E7EB"}` }}>
-                                {s.done ? <span style={{ color: "white", fontSize: 9, fontWeight: 800 }}>✓</span> : s.active ? <Loader size={9} className="spin" style={{ color: "#C2410C" }} /> : null}
-                              </div>
-                              {s.label}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()
                 ) : (
                   /* Chat collapsed — post-flow review */
                   <div style={{ background: "#FFFFFF", borderRadius: 12, border: "1px solid rgba(0,0,0,0.07)", marginBottom: 16, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
