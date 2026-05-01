@@ -2421,6 +2421,16 @@ export default function RequirementsAgent() {
                 <button title="New project" onClick={() => { if (formalScope || chatMessages.length > 0) { if (!window.confirm("Start a new project?")) return; } resetSession(); setView("scope"); setChatCollapsed(false); }} className="rq-btn-ghost" style={{ fontSize: 11 }}>
                   <Plus size={11} /> New
                 </button>
+                {(formalScope || chatMessages.length > 0) && (
+                  <>
+                    <button title="Save project" onClick={() => doSave("draft")} disabled={saveStatus === "saving"} className="rq-btn-ghost" style={{ fontSize: 11 }}>
+                      <Save size={11} /> Save
+                    </button>
+                    <button title="Delete project" onClick={doDeleteCurrentSession} className="rq-btn-ghost" style={{ fontSize: 11, color: "#9CA3AF" }}>
+                      <Trash2 size={11} /> Delete
+                    </button>
+                  </>
+                )}
                 {narrative && (
                   <>
                     <button className="rq-btn-ghost" style={{ fontSize: 11 }} onClick={doExportPDF} disabled={pdfBusy}>
