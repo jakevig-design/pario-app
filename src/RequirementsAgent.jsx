@@ -946,8 +946,8 @@ export default function RequirementsAgent() {
   // Timeline
   const [rfpStart, setRfpStart] = useState(today);
   const [goLive, setGoLive] = useState(() => addCalDays(today(), 180));
-  const [activities, setActivities] = useState(() => makeDefaultActivities(today()));
-  const [buyingChannel, setBuyingChannel] = useState(null); // null | "competitive-bid" | "sole-source"
+  const [activities, setActivities] = useState(() => makeSoleSourceActivities(today()));
+  const [buyingChannel, setBuyingChannel] = useState('sole-source'); // "sole-source" | "competitive-bid"
   const [channelSuggested, setChannelSuggested] = useState(false);
   const [timelineDefaulted, setTimelineDefaulted] = useState(false); // true when 90-day default was applied
   const [collapsedGroups, setCollapsedGroups] = useState({ "Pre-RFx": false, "RFx": false, "Post-RFx": false });
@@ -1115,8 +1115,8 @@ export default function RequirementsAgent() {
     setVendors([]);
     setVendorStatus({});
     setMarketErr("");
-    setActivities(makeDefaultActivities(today()));
-    setBuyingChannel(null);
+    setActivities(makeSoleSourceActivities(today()));
+    setBuyingChannel('sole-source');
     setChannelSuggested(false);
     setRfpStart(today());
     setGoLive(addCalDays(today(), 180));
@@ -1165,7 +1165,7 @@ export default function RequirementsAgent() {
       }));
       setActivities(migrated);
     } else {
-      setActivities(makeDefaultActivities(d.rfpStart || today()));
+      setActivities(d.buyingChannel === 'competitive-bid' ? makeDefaultActivities(d.rfpStart || today()) : makeSoleSourceActivities(d.rfpStart || today()));
     }
     if (d.vendors) setVendors(d.vendors);
     if (d.vendorStatus) setVendorStatus(d.vendorStatus);
@@ -2643,7 +2643,7 @@ export default function RequirementsAgent() {
                         {timelineDefaulted && <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 11, color: "#C2410C", marginBottom: 10 }}>⚠ No deadline provided — defaulted to 90 days. Adjust in The Plan tab.</div>}
                         <div style={{ display: "flex", gap: 10 }}>
                           {[
-                            { label: "RFx start", val: new Date(rfpStart + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric" }) },
+                            { label: "Start", val: new Date(rfpStart + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric" }) },
                             { label: "Go-live", val: new Date(goLive + 'T00:00:00').toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) },
                             { label: "Duration", val: Math.round(calDaysBetween(rfpStart, goLive) / 7) + " weeks" },
                           ].map(t => (
@@ -2745,6 +2745,35 @@ export default function RequirementsAgent() {
                                         No deadline was provided — timeline defaulted to 90 days. Adjust the go-live date below.
                                       </div>
                                     )}
+                                    <div style={{ display: "inline-flex", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
+                                      {[
+                                        { key: "sole-source", label: "Sole Source" },
+                                        { key: "competitive-bid", label: "RFx" },
+                                      ].map(opt => {
+                                        const active = buyingChannel === opt.key;
+                                        return (
+                                          <button
+                                            key={opt.key}
+                                            onClick={() => doSelectChannel(opt.key)}
+                                            style={{
+                                              padding: "6px 14px",
+                                              fontFamily: "'Syne',sans-serif",
+                                              fontSize: 11,
+                                              fontWeight: 700,
+                                              letterSpacing: ".05em",
+                                              textTransform: "uppercase",
+                                              background: active ? "#1E293B" : "#FFFFFF",
+                                              color: active ? "#FFFFFF" : "#6B7280",
+                                              border: "none",
+                                              cursor: "pointer",
+                                              transition: "all .15s",
+                                            }}
+                                          >
+                                            {opt.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
                                     <GanttChart activities={activities} />
                                   </div>
                                 )}
