@@ -249,6 +249,7 @@ const ALLOWED_ORIGINS = [
   'https://agent.acuitysourcing.com',
   'https://www.jvtestspace.com',
   'https://jvtestspace.com',
+  'http://localhost:3000',
 ];
 
 // ── Main handler ──────────────────────────────────────────────
@@ -320,11 +321,11 @@ Output ONLY a valid JSON array. No explanation, no markdown, no code fences. Sta
 Each object: { "name": "...", "category": "...", "g2Rating": "...", "g2ReviewCount": "...", "description": "...", "requirementsMatch": 4, "requirementsTotal": 6, "matchConfidence": "high", "g2Url": "..." }`;
 
     const { data: formatData, status: formatStatus, ok: formatOk } = await callAnthropic(baseHeaders, {
-      model: 'claude-sonnet-4-5', max_tokens: TOKEN_BUDGETS.format, system: formatSystem,
+      model: 'claude-sonnet-4-6', max_tokens: TOKEN_BUDGETS.format, system: formatSystem,
       messages: [{ role: 'user', content: `Convert to JSON array:\n\n${researchText}` }],
     });
     if (!formatOk || formatData.error) return res.status(formatStatus).json(formatData);
-    logUsage({ userId, tenantId, sessionId, callType: 'market_format', model: 'claude-sonnet-4-5', inputTokens: formatData.usage?.input_tokens, outputTokens: formatData.usage?.output_tokens });
+    logUsage({ userId, tenantId, sessionId, callType: 'market_format', model: 'claude-sonnet-4-6', inputTokens: formatData.usage?.input_tokens, outputTokens: formatData.usage?.output_tokens });
     const finalText = (formatData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
     return res.status(200).json({ content: [{ type: 'text', text: finalText }], stop_reason: formatData.stop_reason });
 

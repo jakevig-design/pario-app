@@ -1741,7 +1741,7 @@ export default function RequirementsAgent() {
         vendors.filter(v => v.estimatedPrice && v.estimatedPrice !== "Contact for pricing").map(v => v.estimatedPrice).slice(0, 3).join(", ")
       }${vendors.some(v => v.estimatedPrice) ? " estimated Year 1 cost range." : ""}` : "";
       const userMsg = `${bulletText}${timelineCtx}${vendorCtx}`;
-      const result = await callClaude(P_NARRATIVE, userMsg, false, "claude-sonnet-4-5", getIdentity());
+      const result = await callClaude(P_NARRATIVE, userMsg, false, "claude-sonnet-4-6", getIdentity());
       setNarrative(result.trim());
       logEvent("narrative_generated", { sessionId, userId: authUser?.id, tenantId: userProfile?.tenant_id });
     } catch { /* silent fail */ }
