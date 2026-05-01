@@ -1792,28 +1792,24 @@ export default function RequirementsAgent() {
 
   // ── Unified prep screen: one overlay from DONE detection through narrative ready ──
   const [prepActive, setPrepActive] = useState(false);
+  const [prepTick, setPrepTick] = useState(0);    // increments once per second while active
   const [quipIdx, setQuipIdx] = useState(0);
-  const [prepNow, setPrepNow] = useState(Date.now());
-  const prepStartRef = useRef(null);
 
   useEffect(() => {
-    if (prepActive && !prepStartRef.current) {
-      prepStartRef.current = Date.now();
-      setQuipIdx(Math.floor(Math.random() * PARIO_QUIPS.length));
+    if (!prepActive) {
+      setPrepTick(0);
+      return;
     }
-    if (!prepActive) prepStartRef.current = null;
-  }, [prepActive]);
-
-  useEffect(() => {
-    if (!prepActive) return;
-    const id = setInterval(() => setPrepNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [prepActive]);
-
-  useEffect(() => {
-    if (!prepActive) return;
-    const id = setInterval(() => setQuipIdx(i => i + 1), 4500);
-    return () => clearInterval(id);
+    setPrepTick(0);
+    setQuipIdx(Math.floor(Math.random() * PARIO_QUIPS.length));
+    console.log('[Pario] prep screen intervals starting');
+    const tickId = setInterval(() => setPrepTick(t => t + 1), 1000);
+    const quipId = setInterval(() => setQuipIdx(i => i + 1), 4500);
+    return () => {
+      console.log('[Pario] prep screen intervals cleared');
+      clearInterval(tickId);
+      clearInterval(quipId);
+    };
   }, [prepActive]);
 
   // ── Auto-trigger full flow when scope is approved ──────────
@@ -2453,8 +2449,7 @@ export default function RequirementsAgent() {
 
             {/* ── Unified prep screen — DONE detection through narrative ready ── */}
             {prepActive && (() => {
-              const elapsedSec = prepStartRef.current ? Math.floor((prepNow - prepStartRef.current) / 1000) : 0;
-              const elapsedStr = `${String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:${String(elapsedSec % 60).padStart(2, '0')}`;
+              const elapsedStr = `${String(Math.floor(prepTick / 60)).padStart(2, '0')}:${String(prepTick % 60).padStart(2, '0')}`;
               const quip = PARIO_QUIPS.length ? PARIO_QUIPS[quipIdx % PARIO_QUIPS.length] : '';
               return (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 24px", background: "#FFFFFF" }}>
