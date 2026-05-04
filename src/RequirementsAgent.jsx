@@ -1000,14 +1000,19 @@ export default function RequirementsAgent() {
       window.location.hostname === 'demo.planwithpario.com' ||
       window.location.hostname === 'dev.planwithpario.com';
 
-    getSession().then(async session => {
-      let user = session?.user || null;
+    // Demo + dev subdomains — sign out on browser close so session never persists.
+    // Attached unconditionally on isDemoOrDev so it fires even if profile load fails.
+    if (isDemoOrDev) {
+      window.addEventListener('beforeunload', () => { signOut(); });
+    }
 
-      // Auto sign-in on demo + dev subdomains (both use the Acme demo tenant)
-      if (!user && isDemoOrDev) {
-        const { data, error } = await signIn('test@acme.com', 'test');
-        if (!error && data?.user) user = data.user;
+    (async () => {
+      if (isDemoOrDev) {
+        await signIn('test@acme.com', 'test');
       }
+
+      const session = await getSession();
+      const user = session?.user || null;
 
       setAuthUser(user);
       setAuthLoading(false);
@@ -1035,15 +1040,10 @@ export default function RequirementsAgent() {
             };
             tenantProfileRef.current = companyProfile;
             setAnswers(p => ({ ...p, companyProfile }));
-
-            // Demo + dev subdomains — sign out on browser close so session never persists
-            if (isDemoOrDev) {
-              window.addEventListener('beforeunload', () => { signOut(); });
-            }
           }
         });
       }
-    });
+    })();
     const unsub = onAuthStateChange((event, session) => {
       const user = session?.user || null;
       setAuthUser(user);
