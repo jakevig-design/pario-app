@@ -18,24 +18,30 @@ Roadmap: Pario is the pre-vendor / intake layer. **Procurement OS** (separate, d
 - ✅ **Auto-flow scope-side cascade now fires** (as of commits `857f985`, `7e8c5b2`, `78861ed` on `dev`). The original blocker was `doEvaluateScope` gating `scopeApproved` on a `passed` field that the LLM frequently omits. Now gated on flags being empty (flags = source of truth); expert-questions step decoupled from the gate.
 - 🚧 Full end-to-end cascade (requirements → questions → market → timeline → narrative) verification: pending Jake's manual test on `dev.planwithpario.com`. The unblock got us to `[Pario] Triggering doAutoFlow`; whether every downstream step completes cleanly is the next thing to confirm.
 - 🚧 Sidebar drawer pill clicks don't navigate; output building-block content rendering needs verification; PDF export logo is CORS-blocked in the print window.
-- ❌ Latent: `P_SCOPE_EVALUATE` returns a malformed shape — an array `[{…}]` instead of the documented `{passed, flags}` object. Defensive code in `doEvaluateScope` masks it, but either the prompt or `callJSON` needs a proper fix. Also, stale `claude-sonnet-4-5` model strings at `RequirementsAgent.jsx:1697` (P_NARRATIVE call) and `api/claude.js:322` (market-research format step) — should be `claude-sonnet-4-6`.
+- ❌ Latent: `P_SCOPE_EVALUATE` returns a malformed shape — an array `[{…}]` instead of the documented `{passed, flags}` object. Defensive code in `doEvaluateScope` masks it, but either the prompt or `callJSON` needs a proper fix.
 - ❌ Pre-merge cleanup before `dev` → `main`: remove `[Pario]` debug `console.log` calls and the `[DEV] Skip chat` button (it's a debug-only harness, not product).
 
 **Design decision recorded tonight:** expert questions (`P_SCOPE_EXPERT`) are advisory, not blocking. They are still fetched and surfaced in the building-block panel for optional review, but they do not gate `scopeApproved`. This restores the handoff §1 "no manual steps" promise for the auto-flow.
 
 **Branch warning:** `dev` is ahead of `main`. All work continues on `dev`. Never push directly to `main`.
 
-## Stack
+## Architecture
 
-- **Frontend:** React 18.2 + Vite 5 (single-page, no router). Entire app is `src/RequirementsAgent.jsx` (~2,716 lines on `dev`).
-- **Backend / proxy:** Vercel serverless Node.js (`api/claude.js`, ~334 lines). Also `api/scrape.js`.
-- **Database / auth:** Supabase (Postgres + Auth + RLS). Project: `rysvlgllmnvxchxmraql.supabase.co`. Plan: Pro.
-- **LLM:** Anthropic Claude API. Sonnet 4.6 = primary tier (`default`/`strong`), Haiku 4.5 = fast tier and market-research web search. `LLM_PROVIDER` env var supports `anthropic` (active), `together`, `groq` via `PROVIDER_CONFIG` in `api/claude.js`. Gemini explicitly out of scope.
-- **Hosting:** Vercel (auto-deploy from GitHub). DNS via Cloudflare (grey cloud, no proxy).
-- **Repos:**
-  - App: `github.com/jakevig-design/pario-app` *(handoff says `rfp-agent` — that name is stale)*
-  - Marketing site: `github.com/jakevig-design/pario-site`
-- **Other deps:** `@supabase/supabase-js`, `lucide-react`, `docx` (Word export), `file-saver`.
+| Layer | Technology | Purpose |
+|---|---|---|
+| Frontend | React (Vite) | Single-page application. All UI and state in `src/RequirementsAgent.jsx` |
+| API proxy | Vercel Serverless (Node.js) | All AI calls proxied here. CORS, rate limiting, usage logging. |
+| Database | Supabase (PostgreSQL) | Sessions, users, tenant config, usage logs. RLS on all tables. |
+| Auth | Supabase Auth | Email/password. Session management. |
+| AI | Anthropic Claude API | Sonnet 4.6 (primary), Haiku 4.5 (market research) |
+| Hosting | Vercel | Auto-deploy from GitHub on push to `main` or `dev` branch |
+| DNS | Cloudflare | DNS only — grey cloud. No proxy (conflicts with Vercel routing). |
+
+Other dependencies: `@supabase/supabase-js`, `lucide-react`, `docx` (Word export), `file-saver`. Supabase project: `rysvlgllmnvxchxmraql.supabase.co` (Pro plan). LLM_PROVIDER env supports `anthropic` (active), `together`, `groq` via `PROVIDER_CONFIG` in `api/claude.js`. Gemini explicitly out of scope.
+
+Repos:
+- App: `github.com/jakevig-design/pario-app`
+- Marketing site + docs: `github.com/jakevig-design/pario-site`
 
 ## Architecture notes
 
@@ -67,38 +73,104 @@ Key Supabase tables: `tenant_config`, `user_profiles`, `procurement_sessions`, `
 - **Types:** plain JavaScript (`.jsx`). No TypeScript.
 - **Tone in user-facing copy:** confident, slightly cheeky. Examples: *"Got it, take a break while I get some work done"* / *"Asking the hard questions so you don't have to."* / *"Your business case is ready. Go get that alignment!"*
 
-## Environment
+## Domains
 
-Required Vercel env vars:
-- `ANTHROPIC_API_KEY` — Anthropic API key (server)
-- `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` — Supabase server-side
-- `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — Supabase client-side
-- `LLM_PROVIDER` — defaults to `anthropic`; supports `together`, `groq`
+| URL | Branch | Purpose |
+|---|---|---|
+| `app.planwithpario.com` | `main` | Production app — login required |
+| `demo.planwithpario.com` | `main` | Open demo — auto-login as Acme Co. |
+| `dev.planwithpario.com` | `dev` | Staging — test here before merging to main |
+| `www.planwithpario.com` | `main` | Marketing site (separate repo: `pario-site`) |
+| `docs.planwithpario.com` | `main` | Docs site (served from `pario-site/docs/`) |
+
+## Environment variables
+
+| Variable | Location | Purpose |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | Server-side only | Anthropic API auth. Never in client bundle. |
+| `SUPABASE_URL` | Server-side only | Supabase project URL for server-side calls |
+| `SUPABASE_SERVICE_KEY` | Server-side only | Service role key. Bypasses RLS. Never in client bundle. |
+| `VITE_SUPABASE_URL` | Client bundle | Supabase URL for frontend auth. Public. |
+| `VITE_SUPABASE_ANON_KEY` | Client bundle | Anon key for frontend auth. Public. RLS enforces access. |
+| `LLM_PROVIDER` | Server-side only | Active AI provider. Default: `anthropic`. Options: `together`, `groq` |
 
 Commands:
+
 - Dev: `npm run dev`
 - Build: `npm run build`
 - Preview: `npm run preview`
 
-## Deploy process
+## API proxy — /api/claude
 
-- App repo: `github.com/jakevig-design/pario-app`
-- Branch → environment mapping:
-  - `main` → `app.planwithpario.com` + `demo.planwithpario.com` (production)
-  - `dev` → `dev.planwithpario.com` (staging)
-- Workflow (mandatory): push to `dev` → Vercel auto-deploys to `dev.planwithpario.com` → test → merge `dev` → `main` → Vercel auto-deploys to prod → tag `vX.X.X`.
-- **Never push directly to `main`.**
-- Jake works without a terminal day-to-day; code is edited via GitHub web UI or Claude Code. When pasting whole-file replacements via the GitHub web editor, do a full select-all + replace — partial pastes silently corrupt the file.
+- URL: `https://app.planwithpario.com/api/claude`
+- Method: `POST`
+- Auth: CORS allowlist (origin-based)
 
-## Rollback procedure
+Request body fields: `system` (required), `user` (required), `useWebSearch` (optional boolean), `model` (optional: `fast` / `strong` / `default`).
 
-If a bad deploy reaches production:
+Rate limits: production users 10/min, 100/day. Demo/dev tenants (`acme`) 5/min, 30/day.
 
-Option A (fastest): Vercel dashboard → pario-app → Deployments → find last good deployment → three dots → Promote to Production.
+Error codes: `400 missing_field`, `403 origin_not_allowed`, `403 origin_required`, `429 rate_limit_minute`, `429 rate_limit_day`, `429 tenant_budget`.
 
-Option B: `git revert HEAD && git push origin main`
+## Database schema
 
-Always test on dev.planwithpario.com before merging to main.
+**`tenant_config`:** `tenant_id` (PK), `company_name`, `brand_name`, `vertical`, `employee_count`, `tech_stack` (TEXT[]), `regulatory_context`, `logo_url`, `monthly_call_limit`.
+
+**`procurement_sessions`:** `id` (PK), `user_id` (FK), `tenant_id` (FK), `project_title`, `status` (`draft` / `active` / `complete`), `data` (JSONB — full session state), `updated_at`.
+
+**`api_usage`:** `id` (PK), `user_id` (FK), `tenant_id` (FK), `call_type`, `model`, `input_tokens`, `output_tokens`, `estimated_cost_usd`.
+
+## Prompt system
+
+| Prompt | Model | Purpose |
+|---|---|---|
+| `P_SCOPE_CHAT` | Sonnet 4.6 | Intake conversation. Max 4 questions. Outputs DONE + JSON scope bullets. |
+| `P_SCOPE_GENERATE` | Sonnet 4.6 | Generates formal scope prose from approved bullets. |
+| `P_SCOPE_EVALUATE` | Sonnet 4.6 | 7-criteria quality check. Returns pass/fail with flags. |
+| `P_REQS` | Sonnet 4.6 | Generates 0–4 functional requirements (differentiators). |
+| `P_QS` | Sonnet 4.6 | 4–5 vendor pressure-test questions. Single call. |
+| `P_MARKET` | Haiku 4.5 + Sonnet 4.6 | Vendor research. Haiku for search, Sonnet for formatting. |
+| `P_TIMELINE_DATE` | Sonnet 4.6 | Extracts target date from scope. Defaults to 90 days. |
+| `P_NARRATIVE` | Sonnet 4.6 | 3-paragraph executive business case narrative. |
+
+## Prompt ethos rules
+
+These rules are enforced across all prompts. Never remove or override them.
+
+- Budget is never included in any output — scope, requirements, questions, or narrative.
+- Requirements are differentiators — what separates vendors, not table stakes.
+- Zero differentiators is a valid output — Pario does not manufacture requirements.
+- Questions surface vendor limitations — not confirmation that vendors can do something.
+- Urgency, timeline pressure, and current-state failures never appear in vendor-facing outputs.
+- Platform switches are minimum 12 months — Pario timelines reflect this.
+- No em dashes in any output.
+
+## Deployment workflow
+
+1. All changes go to the `dev` branch first.
+2. Test on `dev.planwithpario.com`.
+3. Merge `dev` to `main` when confirmed working.
+4. Vercel auto-deploys to `app.planwithpario.com` and `demo.planwithpario.com`.
+5. Create a GitHub release tag (`vX.X.X`) after each stable release.
+
+**Never push directly to `main`.**
+
+Jake works without a terminal day-to-day; code is edited via GitHub web UI or Claude Code. When pasting whole-file replacements via the GitHub web editor, do a full select-all + replace — partial pastes silently corrupt the file.
+
+**Rollback:**
+
+- Option A (fastest): Vercel dashboard → `pario-app` → Deployments → find last good deployment → three dots → Promote to Production.
+- Option B: `git revert HEAD && git push origin main`.
+
+Always test on `dev.planwithpario.com` before merging to `main`.
+
+## Useful commands
+
+```bash
+npm run dev
+npm run build
+git checkout dev   # always work here, never on main
+```
 
 ## Don't touch / be careful with
 
@@ -113,7 +185,6 @@ Always test on dev.planwithpario.com before merging to main.
 
 - DPA → PA attorney for design partner — STILL PENDING; critical path.
 - `P_SCOPE_EVALUATE` response shape: LLM returns `[{…}]` array instead of `{passed, flags}` object. Decide whether to fix prompt-side (tighten the schema instruction) or parser-side (`callJSON` unwraps single-element arrays). Defensive flags-as-truth gate is a workaround, not a fix.
-- Stale `claude-sonnet-4-5` references at `RequirementsAgent.jsx:1697` and `api/claude.js:322` — update to `claude-sonnet-4-6`.
 - Sidebar drawer nav wiring (pill clicks, drawer items don't navigate to sections).
 - Building-block content rendering — each block should expand with editable content; needs verification once full cascade confirmed.
 - PDF export logo CORS — convert external logo URLs to base64 before injecting into the print window.
@@ -132,11 +203,3 @@ Always test on dev.planwithpario.com before merging to main.
 - For LLM-related changes, note which provider is being targeted — providers are not interchangeable in prompt format or capabilities.
 - Commits should be small and reversible while we're stabilizing.
 - README.md is stale (describes a prior product name "BuyRight"); rely on this file, not the README.
-
-## Useful commands
-
-```bash
-npm run dev
-npm run build
-git checkout dev   # always work here, never on main
-```
