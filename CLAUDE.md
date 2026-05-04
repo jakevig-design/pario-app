@@ -90,6 +90,16 @@ Commands:
 - **Never push directly to `main`.**
 - Jake works without a terminal day-to-day; code is edited via GitHub web UI or Claude Code. When pasting whole-file replacements via the GitHub web editor, do a full select-all + replace — partial pastes silently corrupt the file.
 
+## Rollback procedure
+
+If a bad deploy reaches production:
+
+Option A (fastest): Vercel dashboard → pario-app → Deployments → find last good deployment → three dots → Promote to Production.
+
+Option B: `git revert HEAD && git push origin main`
+
+Always test on dev.planwithpario.com before merging to main.
+
 ## Don't touch / be careful with
 
 - Production Supabase data — never run destructive queries against prod.
