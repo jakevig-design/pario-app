@@ -40,7 +40,7 @@ function checkRateLimit(userId, tenantId, origin) {
     allowed: false,
     reason: 'rate_limit_day',
     message: DEMO_TENANTS.includes(tenantId)
-      ? 'The demo has reached its daily limit. Visit app.planwithpario.com to create a free account.'
+      ? 'The demo has reached its daily limit. Visit demo.planwithpario.com or contact us to learn more.'
       : 'You\'ve reached your daily usage limit. Resets in 24 hours.',
   };
   recent.push(now);
