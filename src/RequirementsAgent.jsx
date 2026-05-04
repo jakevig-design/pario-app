@@ -2273,8 +2273,8 @@ export default function RequirementsAgent() {
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
                 <img
                   src={logoUrl}
-                  alt=""
-                  onError={(e) => { if (e.currentTarget.src !== PARIO_LOGO_FALLBACK) e.currentTarget.src = PARIO_LOGO_FALLBACK; }}
+                  alt={tc.brand_name || tc.company_name || ""}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 8, background: "#F9FAFB", padding: 4 }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -2479,6 +2479,30 @@ export default function RequirementsAgent() {
                       {saveStatus === "saving" && <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "#D97706" }}>Saving…</span>}
                     </div>
 
+                    {(() => {
+                      const isDemoOrDev =
+                        typeof window !== 'undefined' && (
+                          window.location.hostname === 'demo.planwithpario.com' ||
+                          window.location.hostname === 'dev.planwithpario.com'
+                        );
+                      const tc = userProfile?.tenant_config;
+                      if (!isDemoOrDev || !tc) return null;
+                      const empCount = typeof tc.employee_count === 'number'
+                        ? tc.employee_count.toLocaleString()
+                        : tc.employee_count;
+                      return (
+                        <div style={{
+                          fontFamily: "'Syne',sans-serif",
+                          fontSize: 10,
+                          color: "#9CA3AF",
+                          padding: "4px 18px 8px",
+                          borderBottom: "1px solid rgba(0,0,0,0.06)"
+                        }}>
+                          {[tc.brand_name || tc.company_name, tc.vertical, empCount ? `${empCount} employees` : null].filter(Boolean).join(" · ")}
+                        </div>
+                      );
+                    })()}
+
                     {/* Messages */}
                     <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10, minHeight: 120 }} id="chat-messages">
                       {chatMessages.length === 0 && !chatBusy && (
@@ -2519,7 +2543,7 @@ export default function RequirementsAgent() {
                       <div style={{ padding: "10px 18px", borderTop: "1px solid rgba(0,0,0,0.07)", display: "flex", gap: 8, alignItems: "flex-end" }}>
                         <textarea
                           style={{ flex: 1, border: "1px solid rgba(0,0,0,0.12)", borderRadius: 10, padding: "10px 13px", fontSize: 13, resize: "none", minHeight: 42, maxHeight: 120, background: "#F9F8F8", color: "#111827", fontFamily: "'Lora',serif", outline: "none", lineHeight: 1.5 }}
-                          placeholder={chatBusy ? "Pario is thinking…" : "Reply to Pario…"}
+                          placeholder={chatBusy ? "Pario is thinking…" : "Start with the problem, not the solution..."}
                           value={chatInput}
                           disabled={chatBusy}
                           onChange={e => setChatInput(e.target.value)}
