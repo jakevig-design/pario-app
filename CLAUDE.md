@@ -53,7 +53,6 @@ Roadmap: Pario is the pre-vendor / intake layer. **Procurement OS** (separate, d
 - `src/RequirementsAgent.jsx` — entire UI, state, logic, CSS, prompt orchestration. Refactor deferred until after design-partner validation.
 - `src/prompts.js` — all prompts.
 - `src/supabase.js` — auth, profile, session CRUD, `logEvent`.
-- `src/api.js` — client-side wrapper around the Vercel proxy.
 - `src/ErrorBoundary.jsx` — top-level error UI.
 - `api/claude.js` — Vercel serverless proxy. CORS allowlist, rate limits, provider routing, cost logging, two-step market research.
 - `api/scrape.js` — scrape helper (108 lines).
@@ -64,7 +63,7 @@ Key Supabase tables: `tenant_config`, `user_profiles`, `procurement_sessions`, `
 
 - **Styling:** inline `<style>` injected at module load + inline `style={{...}}` props. CSS class prefix `rq-`. No CSS-in-JS library, no Tailwind. Fonts: Syne (UI), Lora (body), JetBrains Mono.
 - **Components:** single mega-component. Don't add new component files unless explicitly asked — refactor is deferred.
-- **Data fetching:** direct calls to `src/supabase.js` helpers; AI calls go through `src/api.js` → `api/claude.js`.
+- **Data fetching:** direct calls to `src/supabase.js` helpers; AI calls go through the inline `callClaude`/`callJSON` helpers in `src/RequirementsAgent.jsx` to `/api/claude`.
 - **Types:** plain JavaScript (`.jsx`). No TypeScript.
 - **Tone in user-facing copy:** confident, slightly cheeky. Examples: *"Got it, take a break while I get some work done"* / *"Asking the hard questions so you don't have to."* / *"Your business case is ready. Go get that alignment!"*
 
