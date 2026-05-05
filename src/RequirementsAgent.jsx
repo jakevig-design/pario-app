@@ -1144,6 +1144,7 @@ export default function RequirementsAgent() {
     if (!row?.data) return;
     const d = row.data;
     setSessionId(id);
+    logEvent("session_opened", { sessionId: id, userId: authUser?.id, tenantId: userProfile?.tenant_id });
     if (d.step !== undefined) setStep(d.step);
     if (d.projectTitle) setProjectTitle(d.projectTitle);
     if (d.answers) setAnswers(d.answers);
@@ -2259,6 +2260,7 @@ export default function RequirementsAgent() {
           if (!isDemoOrDev && userProfile.tenant_id) {
             try { localStorage.setItem(`profile_seen_${userProfile.tenant_id}`, 'true'); } catch {}
           }
+          logEvent("profile_card_dismissed", { sessionId, userId: authUser?.id, tenantId: userProfile?.tenant_id });
           setShowProfileCard(false);
         };
         const PARIO_LOGO_FALLBACK = '/pario-logo.png';

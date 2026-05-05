@@ -40,7 +40,7 @@ function checkRateLimit(userId, tenantId, origin) {
     allowed: false,
     reason: 'rate_limit_day',
     message: DEMO_TENANTS.includes(tenantId)
-      ? 'The demo has reached its daily limit. Visit app.planwithpario.com to create a free account.'
+      ? 'The demo has reached its daily limit. Visit demo.planwithpario.com or contact us to learn more.'
       : 'You\'ve reached your daily usage limit. Resets in 24 hours.',
   };
   recent.push(now);
@@ -257,14 +257,13 @@ const ALLOWED_ORIGINS = [
 // ── Main handler ──────────────────────────────────────────────
 export default async function handler(req, res) {
   const origin = req.headers['origin'];
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+  if (!origin) {
+    return res.status(403).json({ error: { message: 'Origin required' } });
+  }
+  if (ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
-  } else if (!origin) {
-    // Server-to-server calls have no origin header — allow
-    res.setHeader('Access-Control-Allow-Origin', 'null');
   } else {
-    // Unknown origin — reject preflight, block request
     if (req.method === 'OPTIONS') return res.status(204).end();
     return res.status(403).json({ error: { message: 'Origin not allowed' } });
   }
