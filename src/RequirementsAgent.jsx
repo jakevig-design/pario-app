@@ -1738,6 +1738,17 @@ export default function RequirementsAgent() {
     if (!formalScope) return;
     setAutoFlowing(true);
     try {
+      // Read buying channel from scope bullets so the Gantt reflects the right
+      // channel (RFx vs Sole Source) from the start. doSelectChannel also rebuilds
+      // the activity list and sets channelSuggested, blocking the heuristic at
+      // useEffect[requirements] from overriding the explicit bullet.
+      const channelBullet = scopeBullets.find(b => b.toLowerCase().includes('buying channel'));
+      if (channelBullet) {
+        const lower = channelBullet.toLowerCase();
+        const isRfx = lower.includes('competitive') || lower.includes('rfp') || lower.includes('rfx');
+        doSelectChannel(isRfx ? 'competitive-bid' : 'sole-source');
+      }
+
       // Run all steps — no view switching, overlay handles UX
       await doGenerateReqs();
       await doGenerateQuestions();
